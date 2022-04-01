@@ -50,7 +50,7 @@ services:
 
   # Collector
   otel-collector:
-    image: otel/opentelemetry-collector-dev
+    image: otel/opentelemetry-collector-dev:0e3b991f9f2a5310ad60b26dfba8897d7bb94745
 #    image: dtr.corp.appdynamics.com/pavan.krishna/otelcol:dev
     container_name: otel-collector
     command: ["--config=/etc/otel-config.yml", "${OTELCOL_ARGS}"]

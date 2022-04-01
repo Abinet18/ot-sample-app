@@ -40,4 +40,4 @@ service:
     traces:
       receivers: [otlp]
       processors: [resource]
-      exporters: [otlphttp, zipkin]
+      exporters: [zipkin]
