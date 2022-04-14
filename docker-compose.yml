@@ -15,6 +15,8 @@ services:
     image: adilet-ot-app/node-beta
     build:
       context: ./beta
+    ports:
+      - "5002:5000"
     container_name: node-beta
     entrypoint: ["node", "-r", "./tracing.js", "index.js"]
     env_file:
