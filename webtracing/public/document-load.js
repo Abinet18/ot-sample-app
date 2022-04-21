@@ -7,16 +7,24 @@ const { XMLHttpRequestInstrumentation } = require('@opentelemetry/instrumentatio
 const { UserInteractionInstrumentation } = require('@opentelemetry/instrumentation-user-interaction');
 const { ZoneContextManager } = require('@opentelemetry/context-zone');
 const { registerInstrumentations } = require('@opentelemetry/instrumentation');
+const { Resource } = require('@opentelemetry/resources');
+const  { SemanticResourceAttributes } =require('@opentelemetry/semantic-conventions');
 
-const provider = new WebTracerProvider();
-provider.addSpanProcessor(new SimpleSpanProcessor(new ZipkinExporter({serviceName:'Browser Services'})));
+
+const provider = new WebTracerProvider({
+    resource: new Resource({
+        [SemanticResourceAttributes.SERVICE_NAME]: "Web-tracing"
+    }),
+});
+
+provider.addSpanProcessor(new SimpleSpanProcessor(new ZipkinExporter({headers:{}})));
 provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
 provider.register({
     // Changing default contextManager to use ZoneContextManager - supports asynchronous operations - optional
     contextManager: new ZoneContextManager(),
 });
 
-const tracer = provider.getTracer('test_web_app');
+const tracer = provider.getTracer('browser','1.0.0');
 
 // Registering instrumentations
 registerInstrumentations({
@@ -47,10 +55,11 @@ const fetchData = () => {
     xhr.open('GET', 'http://localhost:5002/products', true);
     xhr.onload = () => {
         if (xhr.status == 200) {
-//            const span = tracer.startSpan('fetching data successful');
+            const span = tracer.startSpan('fetching data successful');
+            span.setAttribute('service.name','Browser_Service')
             const products = JSON.parse(xhr.responseText);
             showProducts(products);
-//            span.end();
+           span.end();
         }
     };
     xhr.onerror = () => {
@@ -64,7 +73,7 @@ btn.addEventListener('click', () => {
     console.log('Fetching data');
     fetchData();
 })
-},{"@opentelemetry/context-zone":70,"@opentelemetry/exporter-zipkin":156,"@opentelemetry/instrumentation":351,"@opentelemetry/instrumentation-document-load":213,"@opentelemetry/instrumentation-user-interaction":259,"@opentelemetry/instrumentation-xml-http-request":305,"@opentelemetry/sdk-trace-base":380,"@opentelemetry/sdk-trace-web":436}],2:[function(require,module,exports){
+},{"@opentelemetry/context-zone":66,"@opentelemetry/exporter-zipkin":67,"@opentelemetry/instrumentation":235,"@opentelemetry/instrumentation-document-load":112,"@opentelemetry/instrumentation-user-interaction":153,"@opentelemetry/instrumentation-xml-http-request":194,"@opentelemetry/resources":244,"@opentelemetry/sdk-trace-base":300,"@opentelemetry/sdk-trace-web":344,"@opentelemetry/semantic-conventions":383}],2:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -2747,154 +2756,6 @@ exports.VERSION = '1.0.4';
  * limitations under the License.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NoopContextManager = void 0;
-var context_1 = require("./context");
-var NoopContextManager = /** @class */ (function () {
-    function NoopContextManager() {
-    }
-    NoopContextManager.prototype.active = function () {
-        return context_1.ROOT_CONTEXT;
-    };
-    NoopContextManager.prototype.with = function (_context, fn) {
-        return fn();
-    };
-    NoopContextManager.prototype.bind = function (target, _context) {
-        return target;
-    };
-    NoopContextManager.prototype.enable = function () {
-        return this;
-    };
-    NoopContextManager.prototype.disable = function () {
-        return this;
-    };
-    return NoopContextManager;
-}());
-exports.NoopContextManager = NoopContextManager;
-
-},{"./context":63}],63:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.createContextKey = exports.ROOT_CONTEXT = exports.BaseContext = void 0;
-var BaseContext = /** @class */ (function () {
-    /**
-     * Construct a new context which inherits values from an optional parent context.
-     *
-     * @param parentContext a context from which to inherit values
-     */
-    function BaseContext(parentContext) {
-        this._currentContext = parentContext ? new Map(parentContext) : new Map();
-    }
-    /**
-     * Get a value from the context.
-     *
-     * @param key key which identifies a context value
-     */
-    BaseContext.prototype.getValue = function (key) {
-        return this._currentContext.get(key);
-    };
-    /**
-     * Create a new context which inherits from this context and has
-     * the given key set to the given value.
-     *
-     * @param key context key for which to set the value
-     * @param value value to set for the given key
-     */
-    BaseContext.prototype.setValue = function (key, value) {
-        var context = new BaseContext(this._currentContext);
-        context._currentContext.set(key, value);
-        return context;
-    };
-    /**
-     * Return a new context which inherits from this context but does
-     * not contain a value for the given key.
-     *
-     * @param key context key for which to clear a value
-     */
-    BaseContext.prototype.deleteValue = function (key) {
-        var context = new BaseContext(this._currentContext);
-        context._currentContext.delete(key);
-        return context;
-    };
-    return BaseContext;
-}());
-exports.BaseContext = BaseContext;
-/** The root context is used as the default parent context when there is no active context */
-exports.ROOT_CONTEXT = new BaseContext();
-/** Get a key to uniquely identify a context value */
-function createContextKey(description) {
-    return Symbol.for(description);
-}
-exports.createContextKey = createContextKey;
-
-},{}],64:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-var context_1 = require("./context");
-Object.defineProperty(exports, "createContextKey", { enumerable: true, get: function () { return context_1.createContextKey; } });
-Object.defineProperty(exports, "ROOT_CONTEXT", { enumerable: true, get: function () { return context_1.ROOT_CONTEXT; } });
-__exportStar(require("./NoopContextManager"), exports);
-__exportStar(require("./types"), exports);
-
-},{"./NoopContextManager":62,"./context":63,"./types":65}],65:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],66:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
 exports.ZoneContextManager = void 0;
 const api_1 = require("@opentelemetry/api");
 const util_1 = require("./util");
@@ -3094,7 +2955,7 @@ class ZoneContextManager {
 }
 exports.ZoneContextManager = ZoneContextManager;
 
-},{"./util":69,"@opentelemetry/api":33}],67:[function(require,module,exports){
+},{"./util":65,"@opentelemetry/api":33}],63:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -3125,9 +2986,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./ZoneContextManager"), exports);
 __exportStar(require("./types"), exports);
 
-},{"./ZoneContextManager":66,"./types":68}],68:[function(require,module,exports){
+},{"./ZoneContextManager":62,"./types":64}],64:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],69:[function(require,module,exports){
+},{"dup":21}],65:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -3156,7 +3017,7 @@ function isListenerObject(obj = {}) {
 }
 exports.isListenerObject = isListenerObject;
 
-},{}],70:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -3187,815 +3048,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("@opentelemetry/context-zone-peer-dep"), exports);
 require("zone.js");
 
-},{"@opentelemetry/context-zone-peer-dep":67,"zone.js":481}],71:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ExportResultCode = void 0;
-var ExportResultCode;
-(function (ExportResultCode) {
-    ExportResultCode[ExportResultCode["SUCCESS"] = 0] = "SUCCESS";
-    ExportResultCode[ExportResultCode["FAILED"] = 1] = "FAILED";
-})(ExportResultCode = exports.ExportResultCode || (exports.ExportResultCode = {}));
-
-},{}],72:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ConsoleLogger = void 0;
-const types_1 = require("./types");
-const platform_1 = require("../platform");
-class ConsoleLogger {
-    constructor(level = platform_1.getEnv().OTEL_LOG_LEVEL) {
-        if (level >= types_1.LogLevel.DEBUG) {
-            this.debug = (...args) => {
-                console.debug(...args);
-            };
-        }
-        if (level >= types_1.LogLevel.INFO) {
-            this.info = (...args) => {
-                console.info(...args);
-            };
-        }
-        if (level >= types_1.LogLevel.WARN) {
-            this.warn = (...args) => {
-                console.warn(...args);
-            };
-        }
-        if (level >= types_1.LogLevel.ERROR) {
-            this.error = (...args) => {
-                console.error(...args);
-            };
-        }
-    }
-    debug(_message, ..._args) { }
-    error(_message, ..._args) { }
-    warn(_message, ..._args) { }
-    info(_message, ..._args) { }
-}
-exports.ConsoleLogger = ConsoleLogger;
-
-},{"../platform":91,"./types":78}],73:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NoopLogger = void 0;
-/** No-op implementation of Logger */
-class NoopLogger {
-    // By default does nothing
-    debug(_message, ..._args) { }
-    // By default does nothing
-    error(_message, ..._args) { }
-    // By default does nothing
-    warn(_message, ..._args) { }
-    // By default does nothing
-    info(_message, ..._args) { }
-}
-exports.NoopLogger = NoopLogger;
-
-},{}],74:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isAttributeValue = exports.sanitizeAttributes = void 0;
-function sanitizeAttributes(attributes) {
-    const out = {};
-    if (attributes == null || typeof attributes !== 'object') {
-        return out;
-    }
-    for (const [k, v] of Object.entries(attributes)) {
-        if (isAttributeValue(v)) {
-            if (Array.isArray(v)) {
-                out[k] = v.slice();
-            }
-            else {
-                out[k] = v;
-            }
-        }
-    }
-    return out;
-}
-exports.sanitizeAttributes = sanitizeAttributes;
-function isAttributeValue(val) {
-    if (val == null) {
-        return true;
-    }
-    if (Array.isArray(val)) {
-        return isHomogeneousAttributeValueArray(val);
-    }
-    return isValidPrimitiveAttributeValue(val);
-}
-exports.isAttributeValue = isAttributeValue;
-function isHomogeneousAttributeValueArray(arr) {
-    let type;
-    for (const element of arr) {
-        // null/undefined elements are allowed
-        if (element == null)
-            continue;
-        if (!type) {
-            if (isValidPrimitiveAttributeValue(element)) {
-                type = typeof element;
-                continue;
-            }
-            // encountered an invalid primitive
-            return false;
-        }
-        if (typeof element === type) {
-            continue;
-        }
-        return false;
-    }
-    return true;
-}
-function isValidPrimitiveAttributeValue(val) {
-    switch (typeof val) {
-        case 'number':
-            return true;
-        case 'boolean':
-            return true;
-        case 'string':
-            return true;
-    }
-    return false;
-}
-
-},{}],75:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.globalErrorHandler = exports.setGlobalErrorHandler = void 0;
-const logging_error_handler_1 = require("./logging-error-handler");
-/** The global error handler delegate */
-let delegateHandler = logging_error_handler_1.loggingErrorHandler();
-/**
- * Set the global error handler
- * @param {ErrorHandler} handler
- */
-function setGlobalErrorHandler(handler) {
-    delegateHandler = handler;
-}
-exports.setGlobalErrorHandler = setGlobalErrorHandler;
-/**
- * Return the global error handler
- * @param {Exception} ex
- */
-exports.globalErrorHandler = (ex) => {
-    try {
-        delegateHandler(ex);
-    }
-    catch (_a) { } // eslint-disable-line no-empty
-};
-
-},{"./logging-error-handler":76}],76:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.loggingErrorHandler = void 0;
-const ConsoleLogger_1 = require("./ConsoleLogger");
-const types_1 = require("./types");
-/**
- * Returns a function that logs an error using the provided logger, or a
- * console logger if one was not provided.
- * @param {Logger} logger
- */
-function loggingErrorHandler(logger) {
-    logger = logger !== null && logger !== void 0 ? logger : new ConsoleLogger_1.ConsoleLogger(types_1.LogLevel.ERROR);
-    return (ex) => {
-        logger.error(stringifyException(ex));
-    };
-}
-exports.loggingErrorHandler = loggingErrorHandler;
-/**
- * Converts an exception into a string representation
- * @param {Exception} ex
- */
-function stringifyException(ex) {
-    if (typeof ex === 'string') {
-        return ex;
-    }
-    else {
-        return JSON.stringify(flattenException(ex));
-    }
-}
-/**
- * Flattens an exception into key-value pairs by traversing the prototype chain
- * and coercing values to strings. Duplicate properties will not be overwritten;
- * the first insert wins.
- */
-function flattenException(ex) {
-    const result = {};
-    let current = ex;
-    while (current !== null) {
-        Object.getOwnPropertyNames(current).forEach(propertyName => {
-            if (result[propertyName])
-                return;
-            const value = current[propertyName];
-            if (value) {
-                result[propertyName] = String(value);
-            }
-        });
-        current = Object.getPrototypeOf(current);
-    }
-    return result;
-}
-
-},{"./ConsoleLogger":72,"./types":78}],77:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isTimeInput = exports.isTimeInputHrTime = exports.hrTimeToMicroseconds = exports.hrTimeToMilliseconds = exports.hrTimeToNanoseconds = exports.hrTimeToTimeStamp = exports.hrTimeDuration = exports.timeInputToHrTime = exports.hrTime = void 0;
-const platform_1 = require("../platform");
-const NANOSECOND_DIGITS = 9;
-const SECOND_TO_NANOSECONDS = Math.pow(10, NANOSECOND_DIGITS);
-/**
- * Converts a number to HrTime
- * @param epochMillis
- */
-function numberToHrtime(epochMillis) {
-    const epochSeconds = epochMillis / 1000;
-    // Decimals only.
-    const seconds = Math.trunc(epochSeconds);
-    // Round sub-nanosecond accuracy to nanosecond.
-    const nanos = Number((epochSeconds - seconds).toFixed(NANOSECOND_DIGITS)) *
-        SECOND_TO_NANOSECONDS;
-    return [seconds, nanos];
-}
-function getTimeOrigin() {
-    let timeOrigin = platform_1.otperformance.timeOrigin;
-    if (typeof timeOrigin !== 'number') {
-        const perf = platform_1.otperformance;
-        timeOrigin = perf.timing && perf.timing.fetchStart;
-    }
-    return timeOrigin;
-}
-/**
- * Returns an hrtime calculated via performance component.
- * @param performanceNow
- */
-function hrTime(performanceNow) {
-    const timeOrigin = numberToHrtime(getTimeOrigin());
-    const now = numberToHrtime(typeof performanceNow === 'number' ? performanceNow : platform_1.otperformance.now());
-    let seconds = timeOrigin[0] + now[0];
-    let nanos = timeOrigin[1] + now[1];
-    // Nanoseconds
-    if (nanos > SECOND_TO_NANOSECONDS) {
-        nanos -= SECOND_TO_NANOSECONDS;
-        seconds += 1;
-    }
-    return [seconds, nanos];
-}
-exports.hrTime = hrTime;
-/**
- *
- * Converts a TimeInput to an HrTime, defaults to _hrtime().
- * @param time
- */
-function timeInputToHrTime(time) {
-    // process.hrtime
-    if (isTimeInputHrTime(time)) {
-        return time;
-    }
-    else if (typeof time === 'number') {
-        // Must be a performance.now() if it's smaller than process start time.
-        if (time < getTimeOrigin()) {
-            return hrTime(time);
-        }
-        else {
-            // epoch milliseconds or performance.timeOrigin
-            return numberToHrtime(time);
-        }
-    }
-    else if (time instanceof Date) {
-        return [time.getTime(), 0];
-    }
-    else {
-        throw TypeError('Invalid input type');
-    }
-}
-exports.timeInputToHrTime = timeInputToHrTime;
-/**
- * Returns a duration of two hrTime.
- * @param startTime
- * @param endTime
- */
-function hrTimeDuration(startTime, endTime) {
-    let seconds = endTime[0] - startTime[0];
-    let nanos = endTime[1] - startTime[1];
-    // overflow
-    if (nanos < 0) {
-        seconds -= 1;
-        // negate
-        nanos += SECOND_TO_NANOSECONDS;
-    }
-    return [seconds, nanos];
-}
-exports.hrTimeDuration = hrTimeDuration;
-/**
- * Convert hrTime to timestamp, for example "2019-05-14T17:00:00.000123456Z"
- * @param hrTime
- */
-function hrTimeToTimeStamp(hrTime) {
-    const precision = NANOSECOND_DIGITS;
-    const tmp = `${'0'.repeat(precision)}${hrTime[1]}Z`;
-    const nanoString = tmp.substr(tmp.length - precision - 1);
-    const date = new Date(hrTime[0] * 1000).toISOString();
-    return date.replace('000Z', nanoString);
-}
-exports.hrTimeToTimeStamp = hrTimeToTimeStamp;
-/**
- * Convert hrTime to nanoseconds.
- * @param hrTime
- */
-function hrTimeToNanoseconds(hrTime) {
-    return hrTime[0] * SECOND_TO_NANOSECONDS + hrTime[1];
-}
-exports.hrTimeToNanoseconds = hrTimeToNanoseconds;
-/**
- * Convert hrTime to milliseconds.
- * @param hrTime
- */
-function hrTimeToMilliseconds(hrTime) {
-    return Math.round(hrTime[0] * 1e3 + hrTime[1] / 1e6);
-}
-exports.hrTimeToMilliseconds = hrTimeToMilliseconds;
-/**
- * Convert hrTime to microseconds.
- * @param hrTime
- */
-function hrTimeToMicroseconds(hrTime) {
-    return Math.round(hrTime[0] * 1e6 + hrTime[1] / 1e3);
-}
-exports.hrTimeToMicroseconds = hrTimeToMicroseconds;
-/**
- * check if time is HrTime
- * @param value
- */
-function isTimeInputHrTime(value) {
-    return (Array.isArray(value) &&
-        value.length === 2 &&
-        typeof value[0] === 'number' &&
-        typeof value[1] === 'number');
-}
-exports.isTimeInputHrTime = isTimeInputHrTime;
-/**
- * check if input value is a correct types.TimeInput
- * @param value
- */
-function isTimeInput(value) {
-    return (isTimeInputHrTime(value) ||
-        typeof value === 'number' ||
-        value instanceof Date);
-}
-exports.isTimeInput = isTimeInput;
-
-},{"../platform":91}],78:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.LogLevel = void 0;
-var LogLevel;
-(function (LogLevel) {
-    LogLevel[LogLevel["ERROR"] = 0] = "ERROR";
-    LogLevel[LogLevel["WARN"] = 1] = "WARN";
-    LogLevel[LogLevel["INFO"] = 2] = "INFO";
-    LogLevel[LogLevel["DEBUG"] = 3] = "DEBUG";
-})(LogLevel = exports.LogLevel || (exports.LogLevel = {}));
-
-},{}],79:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.HttpTraceContext = exports.parseTraceParent = exports.TRACE_STATE_HEADER = exports.TRACE_PARENT_HEADER = void 0;
-const api_1 = require("@opentelemetry/api");
-const TraceState_1 = require("../../trace/TraceState");
-exports.TRACE_PARENT_HEADER = 'traceparent';
-exports.TRACE_STATE_HEADER = 'tracestate';
-const VERSION = '00';
-const VERSION_PART_COUNT = 4; // Version 00 only allows the specific 4 fields.
-const VERSION_REGEX = /^(?!ff)[\da-f]{2}$/;
-const TRACE_ID_REGEX = /^(?![0]{32})[\da-f]{32}$/;
-const PARENT_ID_REGEX = /^(?![0]{16})[\da-f]{16}$/;
-const FLAGS_REGEX = /^[\da-f]{2}$/;
-/**
- * Parses information from the [traceparent] span tag and converts it into {@link SpanContext}
- * @param traceParent - A meta property that comes from server.
- *     It should be dynamically generated server side to have the server's request trace Id,
- *     a parent span Id that was set on the server's request span,
- *     and the trace flags to indicate the server's sampling decision
- *     (01 = sampled, 00 = not sampled).
- *     for example: '{version}-{traceId}-{spanId}-{sampleDecision}'
- *     For more information see {@link https://www.w3.org/TR/trace-context/}
- */
-function parseTraceParent(traceParent) {
-    const trimmed = traceParent.trim();
-    const traceParentParts = trimmed.split('-');
-    // Current version must be structured correctly.
-    // For future versions, we can grab just the parts we do support.
-    if (traceParentParts[0] === VERSION &&
-        traceParentParts.length !== VERSION_PART_COUNT) {
-        return null;
-    }
-    const [version, traceId, parentId, flags] = traceParentParts;
-    const isValidParent = VERSION_REGEX.test(version) &&
-        TRACE_ID_REGEX.test(traceId) &&
-        PARENT_ID_REGEX.test(parentId) &&
-        FLAGS_REGEX.test(flags);
-    if (!isValidParent) {
-        return null;
-    }
-    return {
-        traceId: traceId,
-        spanId: parentId,
-        traceFlags: parseInt(flags, 16),
-    };
-}
-exports.parseTraceParent = parseTraceParent;
-/**
- * Propagates {@link SpanContext} through Trace Context format propagation.
- *
- * Based on the Trace Context specification:
- * https://www.w3.org/TR/trace-context/
- */
-class HttpTraceContext {
-    inject(context, carrier, setter) {
-        const spanContext = api_1.getParentSpanContext(context);
-        if (!spanContext)
-            return;
-        const traceParent = `${VERSION}-${spanContext.traceId}-${spanContext.spanId}-0${Number(spanContext.traceFlags || api_1.TraceFlags.NONE).toString(16)}`;
-        setter.set(carrier, exports.TRACE_PARENT_HEADER, traceParent);
-        if (spanContext.traceState) {
-            setter.set(carrier, exports.TRACE_STATE_HEADER, spanContext.traceState.serialize());
-        }
-    }
-    extract(context, carrier, getter) {
-        const traceParentHeader = getter.get(carrier, exports.TRACE_PARENT_HEADER);
-        if (!traceParentHeader)
-            return context;
-        const traceParent = Array.isArray(traceParentHeader)
-            ? traceParentHeader[0]
-            : traceParentHeader;
-        if (typeof traceParent !== 'string')
-            return context;
-        const spanContext = parseTraceParent(traceParent);
-        if (!spanContext)
-            return context;
-        spanContext.isRemote = true;
-        const traceStateHeader = getter.get(carrier, exports.TRACE_STATE_HEADER);
-        if (traceStateHeader) {
-            // If more than one `tracestate` header is found, we merge them into a
-            // single header.
-            const state = Array.isArray(traceStateHeader)
-                ? traceStateHeader.join(',')
-                : traceStateHeader;
-            spanContext.traceState = new TraceState_1.TraceState(typeof state === 'string' ? state : undefined);
-        }
-        return api_1.setExtractedSpanContext(context, spanContext);
-    }
-    fields() {
-        return [exports.TRACE_PARENT_HEADER, exports.TRACE_STATE_HEADER];
-    }
-}
-exports.HttpTraceContext = HttpTraceContext;
-
-},{"../../trace/TraceState":97,"@opentelemetry/api":120}],80:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CompositePropagator = void 0;
-const NoopLogger_1 = require("../../common/NoopLogger");
-/** Combines multiple propagators into a single propagator. */
-class CompositePropagator {
-    /**
-     * Construct a composite propagator from a list of propagators.
-     *
-     * @param [config] Configuration object for composite propagator
-     */
-    constructor(config = {}) {
-        var _a, _b;
-        this._propagators = (_a = config.propagators) !== null && _a !== void 0 ? _a : [];
-        this._logger = (_b = config.logger) !== null && _b !== void 0 ? _b : new NoopLogger_1.NoopLogger();
-        this._fields = Array.from(new Set(this._propagators
-            // older propagators may not have fields function, null check to be sure
-            .map(p => (typeof p.fields === 'function' ? p.fields() : []))
-            .reduce((x, y) => x.concat(y))));
-    }
-    /**
-     * Run each of the configured propagators with the given context and carrier.
-     * Propagators are run in the order they are configured, so if multiple
-     * propagators write the same carrier key, the propagator later in the list
-     * will "win".
-     *
-     * @param context Context to inject
-     * @param carrier Carrier into which context will be injected
-     */
-    inject(context, carrier, setter) {
-        for (const propagator of this._propagators) {
-            try {
-                propagator.inject(context, carrier, setter);
-            }
-            catch (err) {
-                this._logger.warn(`Failed to inject with ${propagator.constructor.name}. Err: ${err.message}`);
-            }
-        }
-    }
-    /**
-     * Run each of the configured propagators with the given context and carrier.
-     * Propagators are run in the order they are configured, so if multiple
-     * propagators write the same context key, the propagator later in the list
-     * will "win".
-     *
-     * @param context Context to add values to
-     * @param carrier Carrier from which to extract context
-     */
-    extract(context, carrier, getter) {
-        return this._propagators.reduce((ctx, propagator) => {
-            try {
-                return propagator.extract(ctx, carrier, getter);
-            }
-            catch (err) {
-                this._logger.warn(`Failed to inject with ${propagator.constructor.name}. Err: ${err.message}`);
-            }
-            return ctx;
-        }, context);
-    }
-    fields() {
-        // return a new array so our fields cannot be modified
-        return this._fields.slice();
-    }
-}
-exports.CompositePropagator = CompositePropagator;
-
-},{"../../common/NoopLogger":73}],81:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],82:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.setCorrelationContext = exports.getCorrelationContext = void 0;
-const api_1 = require("@opentelemetry/api");
-const CORRELATION_CONTEXT = api_1.createContextKey('OpenTelemetry Distributed Contexts Key');
-/**
- * @param {Context} Context that manage all context values
- * @returns {CorrelationContext} Extracted correlation context from the context
- */
-function getCorrelationContext(context) {
-    return (context.getValue(CORRELATION_CONTEXT) || undefined);
-}
-exports.getCorrelationContext = getCorrelationContext;
-/**
- * @param {Context} Context that manage all context values
- * @param {CorrelationContext} correlation context that will be set in the actual context
- */
-function setCorrelationContext(context, correlationContext) {
-    return context.setValue(CORRELATION_CONTEXT, correlationContext);
-}
-exports.setCorrelationContext = setCorrelationContext;
-
-},{"@opentelemetry/api":120}],83:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.HttpCorrelationContext = exports.MAX_TOTAL_LENGTH = exports.MAX_PER_NAME_VALUE_PAIRS = exports.MAX_NAME_VALUE_PAIRS = exports.CORRELATION_CONTEXT_HEADER = void 0;
-const correlation_context_1 = require("../correlation-context");
-const KEY_PAIR_SEPARATOR = '=';
-const PROPERTIES_SEPARATOR = ';';
-const ITEMS_SEPARATOR = ',';
-// Name of the http header used to propagate the correlation context
-exports.CORRELATION_CONTEXT_HEADER = 'baggage';
-// Maximum number of name-value pairs allowed by w3c spec
-exports.MAX_NAME_VALUE_PAIRS = 180;
-// Maximum number of bytes per a single name-value pair allowed by w3c spec
-exports.MAX_PER_NAME_VALUE_PAIRS = 4096;
-// Maximum total length of all name-value pairs allowed by w3c spec
-exports.MAX_TOTAL_LENGTH = 8192;
-/**
- * Propagates {@link CorrelationContext} through Context format propagation.
- *
- * Based on the Correlation Context specification:
- * https://w3c.github.io/correlation-context/
- */
-class HttpCorrelationContext {
-    inject(context, carrier, setter) {
-        const correlationContext = correlation_context_1.getCorrelationContext(context);
-        if (!correlationContext)
-            return;
-        const keyPairs = this._getKeyPairs(correlationContext)
-            .filter((pair) => {
-            return pair.length <= exports.MAX_PER_NAME_VALUE_PAIRS;
-        })
-            .slice(0, exports.MAX_NAME_VALUE_PAIRS);
-        const headerValue = this._serializeKeyPairs(keyPairs);
-        if (headerValue.length > 0) {
-            setter.set(carrier, exports.CORRELATION_CONTEXT_HEADER, headerValue);
-        }
-    }
-    _serializeKeyPairs(keyPairs) {
-        return keyPairs.reduce((hValue, current) => {
-            const value = `${hValue}${hValue != '' ? ITEMS_SEPARATOR : ''}${current}`;
-            return value.length > exports.MAX_TOTAL_LENGTH ? hValue : value;
-        }, '');
-    }
-    _getKeyPairs(correlationContext) {
-        return Object.keys(correlationContext).map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(correlationContext[key].value)}`);
-    }
-    extract(context, carrier, getter) {
-        const headerValue = getter.get(carrier, exports.CORRELATION_CONTEXT_HEADER);
-        if (!headerValue)
-            return context;
-        const correlationContext = {};
-        if (headerValue.length == 0) {
-            return context;
-        }
-        const pairs = headerValue.split(ITEMS_SEPARATOR);
-        pairs.forEach(entry => {
-            const keyPair = this._parsePairKeyValue(entry);
-            if (keyPair) {
-                correlationContext[keyPair.key] = { value: keyPair.value };
-            }
-        });
-        if (Object.entries(correlationContext).length === 0) {
-            return context;
-        }
-        return correlation_context_1.setCorrelationContext(context, correlationContext);
-    }
-    _parsePairKeyValue(entry) {
-        const valueProps = entry.split(PROPERTIES_SEPARATOR);
-        if (valueProps.length <= 0)
-            return;
-        const keyPairPart = valueProps.shift();
-        if (!keyPairPart)
-            return;
-        const keyPair = keyPairPart.split(KEY_PAIR_SEPARATOR);
-        if (keyPair.length != 2)
-            return;
-        const key = decodeURIComponent(keyPair[0].trim());
-        let value = decodeURIComponent(keyPair[1].trim());
-        if (valueProps.length > 0) {
-            value =
-                value + PROPERTIES_SEPARATOR + valueProps.join(PROPERTIES_SEPARATOR);
-        }
-        return { key, value };
-    }
-    fields() {
-        return [exports.CORRELATION_CONTEXT_HEADER];
-    }
-}
-exports.HttpCorrelationContext = HttpCorrelationContext;
-
-},{"../correlation-context":82}],84:[function(require,module,exports){
+},{"@opentelemetry/context-zone-peer-dep":63,"zone.js":389}],67:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -4020,2536 +3073,13 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
     o[k2] = m[k];
 }));
 var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./common/attributes"), exports);
-__exportStar(require("./common/ConsoleLogger"), exports);
-__exportStar(require("./common/global-error-handler"), exports);
-__exportStar(require("./common/logging-error-handler"), exports);
-__exportStar(require("./common/NoopLogger"), exports);
-__exportStar(require("./common/time"), exports);
-__exportStar(require("./common/types"), exports);
-__exportStar(require("./ExportResult"), exports);
-__exportStar(require("./version"), exports);
-__exportStar(require("./context/propagation/composite"), exports);
-__exportStar(require("./context/propagation/HttpTraceContext"), exports);
-__exportStar(require("./context/propagation/types"), exports);
-__exportStar(require("./correlation-context/correlation-context"), exports);
-__exportStar(require("./correlation-context/propagation/HttpCorrelationContext"), exports);
-__exportStar(require("./platform"), exports);
-__exportStar(require("./trace/NoRecordingSpan"), exports);
-__exportStar(require("./trace/sampler/AlwaysOffSampler"), exports);
-__exportStar(require("./trace/sampler/AlwaysOnSampler"), exports);
-__exportStar(require("./trace/sampler/ParentBasedSampler"), exports);
-__exportStar(require("./trace/sampler/TraceIdRatioBasedSampler"), exports);
-__exportStar(require("./trace/TraceState"), exports);
-__exportStar(require("./trace/IdGenerator"), exports);
-__exportStar(require("./utils/deep-merge"), exports);
-__exportStar(require("./utils/url"), exports);
-__exportStar(require("./utils/wrap"), exports);
-
-},{"./ExportResult":71,"./common/ConsoleLogger":72,"./common/NoopLogger":73,"./common/attributes":74,"./common/global-error-handler":75,"./common/logging-error-handler":76,"./common/time":77,"./common/types":78,"./context/propagation/HttpTraceContext":79,"./context/propagation/composite":80,"./context/propagation/types":81,"./correlation-context/correlation-context":82,"./correlation-context/propagation/HttpCorrelationContext":83,"./platform":91,"./trace/IdGenerator":95,"./trace/NoRecordingSpan":96,"./trace/TraceState":97,"./trace/sampler/AlwaysOffSampler":98,"./trace/sampler/AlwaysOnSampler":99,"./trace/sampler/ParentBasedSampler":100,"./trace/sampler/TraceIdRatioBasedSampler":101,"./utils/deep-merge":102,"./utils/url":104,"./utils/wrap":105,"./version":106}],85:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateValue = exports.validateKey = void 0;
-const VALID_KEY_CHAR_RANGE = '[_0-9a-z-*/]';
-const VALID_KEY = `[a-z]${VALID_KEY_CHAR_RANGE}{0,255}`;
-const VALID_VENDOR_KEY = `[a-z0-9]${VALID_KEY_CHAR_RANGE}{0,240}@[a-z]${VALID_KEY_CHAR_RANGE}{0,13}`;
-const VALID_KEY_REGEX = new RegExp(`^(?:${VALID_KEY}|${VALID_VENDOR_KEY})$`);
-const VALID_VALUE_BASE_REGEX = /^[ -~]{0,255}[!-~]$/;
-const INVALID_VALUE_COMMA_EQUAL_REGEX = /,|=/;
-/**
- * Key is opaque string up to 256 characters printable. It MUST begin with a
- * lowercase letter, and can only contain lowercase letters a-z, digits 0-9,
- * underscores _, dashes -, asterisks *, and forward slashes /.
- * For multi-tenant vendor scenarios, an at sign (@) can be used to prefix the
- * vendor name. Vendors SHOULD set the tenant ID at the beginning of the key.
- * see https://www.w3.org/TR/trace-context/#key
- */
-function validateKey(key) {
-    return VALID_KEY_REGEX.test(key);
-}
-exports.validateKey = validateKey;
-/**
- * Value is opaque string up to 256 characters printable ASCII RFC0020
- * characters (i.e., the range 0x20 to 0x7E) except comma , and =.
- */
-function validateValue(value) {
-    return (VALID_VALUE_BASE_REGEX.test(value) &&
-        !INVALID_VALUE_COMMA_EQUAL_REGEX.test(value));
-}
-exports.validateValue = validateValue;
-
-},{}],86:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BaseAbstractPlugin = void 0;
-/** This class represent the base to patch plugin. */
-class BaseAbstractPlugin {
-    constructor(_tracerName, _tracerVersion) {
-        this._tracerName = _tracerName;
-        this._tracerVersion = _tracerVersion;
-    }
-    disable() {
-        this.unpatch();
-    }
-}
-exports.BaseAbstractPlugin = BaseAbstractPlugin;
-
-},{}],87:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BasePlugin = void 0;
-const BaseAbstractPlugin_1 = require("../BaseAbstractPlugin");
-/** This class represent the base to patch plugin. */
-class BasePlugin extends BaseAbstractPlugin_1.BaseAbstractPlugin {
-    enable(moduleExports, tracerProvider, logger, config) {
-        this._moduleExports = moduleExports;
-        this._tracer = tracerProvider.getTracer(this._tracerName, this._tracerVersion);
-        this._logger = logger;
-        if (config)
-            this._config = config;
-        return this.patch();
-    }
-}
-exports.BasePlugin = BasePlugin;
-
-},{"../BaseAbstractPlugin":86}],88:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RandomIdGenerator = void 0;
-const SPAN_ID_BYTES = 8;
-const TRACE_ID_BYTES = 16;
-class RandomIdGenerator {
-    constructor() {
-        /**
-         * Returns a random 16-byte trace ID formatted/encoded as a 32 lowercase hex
-         * characters corresponding to 128 bits.
-         */
-        this.generateTraceId = getIdGenerator(TRACE_ID_BYTES);
-        /**
-         * Returns a random 8-byte span ID formatted/encoded as a 16 lowercase hex
-         * characters corresponding to 64 bits.
-         */
-        this.generateSpanId = getIdGenerator(SPAN_ID_BYTES);
-    }
-}
-exports.RandomIdGenerator = RandomIdGenerator;
-const SHARED_CHAR_CODES_ARRAY = Array(32);
-function getIdGenerator(bytes) {
-    return function generateId() {
-        for (let i = 0; i < bytes * 2; i++) {
-            SHARED_CHAR_CODES_ARRAY[i] = Math.floor(Math.random() * 16) + 48;
-            // valid hex characters in the range 48-57 and 97-102
-            if (SHARED_CHAR_CODES_ARRAY[i] >= 58) {
-                SHARED_CHAR_CODES_ARRAY[i] += 39;
-            }
-        }
-        return String.fromCharCode.apply(null, SHARED_CHAR_CODES_ARRAY.slice(0, bytes * 2));
-    };
-}
-
-},{}],89:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getEnv = void 0;
-const environment_1 = require("../../utils/environment");
-/**
- * Gets the environment variables
- */
-function getEnv() {
-    const _window = window;
-    const globalEnv = environment_1.parseEnvironment(_window);
-    return Object.assign({}, environment_1.DEFAULT_ENVIRONMENT, globalEnv);
-}
-exports.getEnv = getEnv;
-
-},{"../../utils/environment":103}],90:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.hexToBase64 = void 0;
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-function hexToBase64(hexStr) {
-    const hexStrLen = hexStr.length;
-    let hexAsciiCharsStr = '';
-    for (let i = 0; i < hexStrLen; i += 2) {
-        const hexPair = hexStr.substring(i, i + 2);
-        const hexVal = parseInt(hexPair, 16);
-        hexAsciiCharsStr += String.fromCharCode(hexVal);
-    }
-    return btoa(hexAsciiCharsStr);
-}
-exports.hexToBase64 = hexToBase64;
-
-},{}],91:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./BasePlugin"), exports);
-__exportStar(require("./environment"), exports);
-__exportStar(require("./hex-to-base64"), exports);
-__exportStar(require("./RandomIdGenerator"), exports);
-__exportStar(require("./performance"), exports);
-__exportStar(require("./sdk-info"), exports);
-__exportStar(require("./timer-util"), exports);
-
-},{"./BasePlugin":87,"./RandomIdGenerator":88,"./environment":89,"./hex-to-base64":90,"./performance":92,"./sdk-info":93,"./timer-util":94}],92:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.otperformance = void 0;
-exports.otperformance = performance;
-
-},{}],93:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SDK_INFO = void 0;
-const version_1 = require("../../version");
-/** Constants describing the SDK in use */
-exports.SDK_INFO = {
-    NAME: 'opentelemetry',
-    RUNTIME: 'browser',
-    LANGUAGE: 'webjs',
-    VERSION: version_1.VERSION,
-};
-
-},{"../../version":106}],94:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.unrefTimer = void 0;
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-function unrefTimer(_timer) { }
-exports.unrefTimer = unrefTimer;
-
-},{}],95:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],96:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NoRecordingSpan = void 0;
-const api_1 = require("@opentelemetry/api");
-/**
- * The NoRecordingSpan extends the {@link NoopSpan}, making all operations no-op
- * except context propagation.
- */
-class NoRecordingSpan extends api_1.NoopSpan {
-    constructor(spanContext) {
-        super(spanContext);
-        this._context = spanContext || api_1.INVALID_SPAN_CONTEXT;
-    }
-    // Returns a SpanContext.
-    context() {
-        return this._context;
-    }
-}
-exports.NoRecordingSpan = NoRecordingSpan;
-
-},{"@opentelemetry/api":120}],97:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.TraceState = void 0;
-const validators_1 = require("../internal/validators");
-const MAX_TRACE_STATE_ITEMS = 32;
-const MAX_TRACE_STATE_LEN = 512;
-const LIST_MEMBERS_SEPARATOR = ',';
-const LIST_MEMBER_KEY_VALUE_SPLITTER = '=';
-/**
- * TraceState must be a class and not a simple object type because of the spec
- * requirement (https://www.w3.org/TR/trace-context/#tracestate-field).
- *
- * Here is the list of allowed mutations:
- * - New key-value pair should be added into the beginning of the list
- * - The value of any key can be updated. Modified keys MUST be moved to the
- * beginning of the list.
- */
-class TraceState {
-    constructor(rawTraceState) {
-        this._internalState = new Map();
-        if (rawTraceState)
-            this._parse(rawTraceState);
-    }
-    set(key, value) {
-        // TODO: Benchmark the different approaches(map vs list) and
-        // use the faster one.
-        const traceState = this._clone();
-        if (traceState._internalState.has(key)) {
-            traceState._internalState.delete(key);
-        }
-        traceState._internalState.set(key, value);
-        return traceState;
-    }
-    unset(key) {
-        const traceState = this._clone();
-        traceState._internalState.delete(key);
-        return traceState;
-    }
-    get(key) {
-        return this._internalState.get(key);
-    }
-    serialize() {
-        return this._keys()
-            .reduce((agg, key) => {
-            agg.push(key + LIST_MEMBER_KEY_VALUE_SPLITTER + this.get(key));
-            return agg;
-        }, [])
-            .join(LIST_MEMBERS_SEPARATOR);
-    }
-    _parse(rawTraceState) {
-        if (rawTraceState.length > MAX_TRACE_STATE_LEN)
-            return;
-        this._internalState = rawTraceState
-            .split(LIST_MEMBERS_SEPARATOR)
-            .reverse() // Store in reverse so new keys (.set(...)) will be placed at the beginning
-            .reduce((agg, part) => {
-            const listMember = part.trim(); // Optional Whitespace (OWS) handling
-            const i = listMember.indexOf(LIST_MEMBER_KEY_VALUE_SPLITTER);
-            if (i !== -1) {
-                const key = listMember.slice(0, i);
-                const value = listMember.slice(i + 1, part.length);
-                if (validators_1.validateKey(key) && validators_1.validateValue(value)) {
-                    agg.set(key, value);
-                }
-                else {
-                    // TODO: Consider to add warning log
-                }
-            }
-            return agg;
-        }, new Map());
-        // Because of the reverse() requirement, trunc must be done after map is created
-        if (this._internalState.size > MAX_TRACE_STATE_ITEMS) {
-            this._internalState = new Map(Array.from(this._internalState.entries())
-                .reverse() // Use reverse same as original tracestate parse chain
-                .slice(0, MAX_TRACE_STATE_ITEMS));
-        }
-    }
-    _keys() {
-        return Array.from(this._internalState.keys()).reverse();
-    }
-    _clone() {
-        const traceState = new TraceState();
-        traceState._internalState = new Map(this._internalState);
-        return traceState;
-    }
-}
-exports.TraceState = TraceState;
-
-},{"../internal/validators":85}],98:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AlwaysOffSampler = void 0;
-const api_1 = require("@opentelemetry/api");
-/** Sampler that samples no traces. */
-class AlwaysOffSampler {
-    shouldSample() {
-        return {
-            decision: api_1.SamplingDecision.NOT_RECORD,
-        };
-    }
-    toString() {
-        return 'AlwaysOffSampler';
-    }
-}
-exports.AlwaysOffSampler = AlwaysOffSampler;
-
-},{"@opentelemetry/api":120}],99:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AlwaysOnSampler = void 0;
-const api_1 = require("@opentelemetry/api");
-/** Sampler that samples all traces. */
-class AlwaysOnSampler {
-    shouldSample() {
-        return {
-            decision: api_1.SamplingDecision.RECORD_AND_SAMPLED,
-        };
-    }
-    toString() {
-        return 'AlwaysOnSampler';
-    }
-}
-exports.AlwaysOnSampler = AlwaysOnSampler;
-
-},{"@opentelemetry/api":120}],100:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ParentBasedSampler = void 0;
-const api_1 = require("@opentelemetry/api");
-const global_error_handler_1 = require("../../common/global-error-handler");
-const AlwaysOffSampler_1 = require("./AlwaysOffSampler");
-const AlwaysOnSampler_1 = require("./AlwaysOnSampler");
-/**
- * A composite sampler that either respects the parent span's sampling decision
- * or delegates to `delegateSampler` for root spans.
- */
-class ParentBasedSampler {
-    constructor(config) {
-        var _a, _b, _c, _d;
-        this._root = config.root;
-        if (!this._root) {
-            global_error_handler_1.globalErrorHandler(new Error('ParentBasedSampler must have a root sampler configured'));
-            this._root = new AlwaysOnSampler_1.AlwaysOnSampler();
-        }
-        this._remoteParentSampled = (_a = config.remoteParentSampled) !== null && _a !== void 0 ? _a : new AlwaysOnSampler_1.AlwaysOnSampler();
-        this._remoteParentNotSampled = (_b = config.remoteParentNotSampled) !== null && _b !== void 0 ? _b : new AlwaysOffSampler_1.AlwaysOffSampler();
-        this._localParentSampled = (_c = config.localParentSampled) !== null && _c !== void 0 ? _c : new AlwaysOnSampler_1.AlwaysOnSampler();
-        this._localParentNotSampled = (_d = config.localParentNotSampled) !== null && _d !== void 0 ? _d : new AlwaysOffSampler_1.AlwaysOffSampler();
-    }
-    shouldSample(context, traceId, spanName, spanKind, attributes, links) {
-        const parentContext = api_1.getParentSpanContext(context);
-        if (!parentContext) {
-            return this._root.shouldSample(context, traceId, spanName, spanKind, attributes, links);
-        }
-        if (parentContext.isRemote) {
-            if (parentContext.traceFlags & api_1.TraceFlags.SAMPLED) {
-                return this._remoteParentSampled.shouldSample(context, traceId, spanName, spanKind, attributes, links);
-            }
-            return this._remoteParentNotSampled.shouldSample(context, traceId, spanName, spanKind, attributes, links);
-        }
-        if (parentContext.traceFlags & api_1.TraceFlags.SAMPLED) {
-            return this._localParentSampled.shouldSample(context, traceId, spanName, spanKind, attributes, links);
-        }
-        return this._localParentNotSampled.shouldSample(context, traceId, spanName, spanKind, attributes, links);
-    }
-    toString() {
-        return `ParentBased{root=${this._root.toString()}, remoteParentSampled=${this._remoteParentSampled.toString()}, remoteParentNotSampled=${this._remoteParentNotSampled.toString()}, localParentSampled=${this._localParentSampled.toString()}, localParentNotSampled=${this._localParentNotSampled.toString()}}`;
-    }
-}
-exports.ParentBasedSampler = ParentBasedSampler;
-
-},{"../../common/global-error-handler":75,"./AlwaysOffSampler":98,"./AlwaysOnSampler":99,"@opentelemetry/api":120}],101:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.TraceIdRatioBasedSampler = void 0;
-const api_1 = require("@opentelemetry/api");
-/** Sampler that samples a given fraction of traces based of trace id deterministically. */
-class TraceIdRatioBasedSampler {
-    constructor(_ratio = 0) {
-        this._ratio = _ratio;
-        this._ratio = this._normalize(_ratio);
-    }
-    shouldSample(context, traceId) {
-        let accumulation = 0;
-        for (let idx = 0; idx < traceId.length; idx++) {
-            accumulation += traceId.charCodeAt(idx);
-        }
-        const cmp = (accumulation % 100) / 100;
-        return {
-            decision: cmp < this._ratio
-                ? api_1.SamplingDecision.RECORD_AND_SAMPLED
-                : api_1.SamplingDecision.NOT_RECORD,
-        };
-    }
-    toString() {
-        return `TraceIdRatioBased{${this._ratio}}`;
-    }
-    _normalize(ratio) {
-        if (typeof ratio !== 'number' || isNaN(ratio))
-            return 0;
-        return ratio >= 1 ? 1 : ratio <= 0 ? 0 : ratio;
-    }
-}
-exports.TraceIdRatioBasedSampler = TraceIdRatioBasedSampler;
-
-},{"@opentelemetry/api":120}],102:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.deepMerge = void 0;
-/**
- * Deeply merges a source object onto a target object.
- * If a given property is an array in both source and target, the
- * source property replaces the target property entirely.
- * @param target
- * @param source
- * @param maxDepth avoids an infinite CPU loop. Defaults to 10.
- * @returns a deeply merged object
- */
-function deepMerge(target, source, maxDepth = 10) {
-    const merged = target;
-    if (maxDepth === 0) {
-        throw new Error('Max depth exceeded.');
-    }
-    for (const [prop, value] of Object.entries(source)) {
-        if (bothPropsAreObjects(target, source, prop)) {
-            if (bothPropsAreArrays(target, source, prop)) {
-                merged[prop] = value;
-            }
-            else {
-                merged[prop] = deepMerge(target[prop], value, maxDepth - 1);
-            }
-        }
-        else {
-            merged[prop] = value;
-        }
-    }
-    return merged;
-}
-exports.deepMerge = deepMerge;
-function bothPropsAreObjects(target, source, prop) {
-    return propIsObject(target, prop) && propIsObject(source, prop);
-}
-function propIsObject(object, prop) {
-    return typeof object[prop] === 'object' && object[prop] !== null;
-}
-function bothPropsAreArrays(target, source, prop) {
-    return Array.isArray(source[prop]) && Array.isArray(target[prop]);
-}
-
-},{}],103:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseEnvironment = exports.DEFAULT_ENVIRONMENT = void 0;
-const types_1 = require("../common/types");
-const ENVIRONMENT_NUMBERS = [
-    'OTEL_SAMPLING_PROBABILITY',
-    'OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT',
-    'OTEL_SPAN_EVENT_COUNT_LIMIT',
-    'OTEL_SPAN_LINK_COUNT_LIMIT',
-];
-/**
- * Default environment variables
- */
-exports.DEFAULT_ENVIRONMENT = {
-    OTEL_NO_PATCH_MODULES: '',
-    OTEL_LOG_LEVEL: types_1.LogLevel.INFO,
-    OTEL_SAMPLING_PROBABILITY: 1,
-    OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT: 1000,
-    OTEL_SPAN_EVENT_COUNT_LIMIT: 1000,
-    OTEL_SPAN_LINK_COUNT_LIMIT: 1000,
-};
-/**
- * Parses a variable as number with number validation
- * @param name
- * @param environment
- * @param values
- * @param min
- * @param max
- */
-function parseNumber(name, environment, values, min = -Infinity, max = Infinity) {
-    if (typeof values[name] !== 'undefined') {
-        const value = Number(values[name]);
-        if (!isNaN(value)) {
-            if (value < min) {
-                environment[name] = min;
-            }
-            else if (value > max) {
-                environment[name] = max;
-            }
-            else {
-                environment[name] = value;
-            }
-        }
-    }
-}
-/**
- * Environmentally sets log level if valid log level string is provided
- * @param key
- * @param environment
- * @param values
- */
-function setLogLevelFromEnv(key, environment, values) {
-    const value = values[key];
-    switch (typeof value === 'string' ? value.toUpperCase() : value) {
-        case 'DEBUG':
-            environment[key] = types_1.LogLevel.DEBUG;
-            break;
-        case 'INFO':
-            environment[key] = types_1.LogLevel.INFO;
-            break;
-        case 'WARN':
-            environment[key] = types_1.LogLevel.WARN;
-            break;
-        case 'ERROR':
-            environment[key] = types_1.LogLevel.ERROR;
-            break;
-        default:
-            // do nothing
-            break;
-    }
-}
-/**
- * Parses environment values
- * @param values
- */
-function parseEnvironment(values) {
-    const environment = {};
-    for (const env in exports.DEFAULT_ENVIRONMENT) {
-        const key = env;
-        switch (key) {
-            case 'OTEL_SAMPLING_PROBABILITY':
-                parseNumber(key, environment, values, 0, 1);
-                break;
-            case 'OTEL_LOG_LEVEL':
-                setLogLevelFromEnv(key, environment, values);
-                break;
-            default:
-                if (ENVIRONMENT_NUMBERS.indexOf(key) >= 0) {
-                    parseNumber(key, environment, values);
-                }
-                else {
-                    if (typeof values[key] !== 'undefined') {
-                        environment[key] = values[key];
-                    }
-                }
-        }
-    }
-    return environment;
-}
-exports.parseEnvironment = parseEnvironment;
-
-},{"../common/types":78}],104:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isUrlIgnored = exports.urlMatches = void 0;
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-function urlMatches(url, urlToMatch) {
-    if (typeof urlToMatch === 'string') {
-        return url === urlToMatch;
-    }
-    else {
-        return !!url.match(urlToMatch);
-    }
-}
-exports.urlMatches = urlMatches;
-/**
- * Check if {@param url} should be ignored when comparing against {@param ignoredUrls}
- * @param url
- * @param ignoredUrls
- */
-function isUrlIgnored(url, ignoredUrls) {
-    if (!ignoredUrls) {
-        return false;
-    }
-    for (const ignoreUrl of ignoredUrls) {
-        if (urlMatches(url, ignoreUrl)) {
-            return true;
-        }
-    }
-    return false;
-}
-exports.isUrlIgnored = isUrlIgnored;
-
-},{}],105:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isWrapped = void 0;
-/**
- * Checks if certain function has been already wrapped
- * @param func
- */
-function isWrapped(func) {
-    return (typeof func === 'function' &&
-        typeof func.__original === 'function' &&
-        typeof func.__unwrap === 'function' &&
-        func.__wrapped === true);
-}
-exports.isWrapped = isWrapped;
-
-},{}],106:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.VERSION = void 0;
-// this is autogenerated file, see scripts/version-update.js
-exports.VERSION = '0.13.0';
-
-},{}],107:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ContextAPI = void 0;
-var context_base_1 = require("@opentelemetry/context-base");
-var global_utils_1 = require("./global-utils");
-var NOOP_CONTEXT_MANAGER = new context_base_1.NoopContextManager();
-/**
- * Singleton object which represents the entry point to the OpenTelemetry Context API
- */
-var ContextAPI = /** @class */ (function () {
-    /** Empty private constructor prevents end users from constructing a new instance of the API */
-    function ContextAPI() {
-    }
-    /** Get the singleton instance of the Context API */
-    ContextAPI.getInstance = function () {
-        if (!this._instance) {
-            this._instance = new ContextAPI();
-        }
-        return this._instance;
-    };
-    /**
-     * Set the current context manager. Returns the initialized context manager
-     */
-    ContextAPI.prototype.setGlobalContextManager = function (contextManager) {
-        if (global_utils_1._global[global_utils_1.GLOBAL_CONTEXT_MANAGER_API_KEY]) {
-            // global context manager has already been set
-            return this._getContextManager();
-        }
-        global_utils_1._global[global_utils_1.GLOBAL_CONTEXT_MANAGER_API_KEY] = global_utils_1.makeGetter(global_utils_1.API_BACKWARDS_COMPATIBILITY_VERSION, contextManager, NOOP_CONTEXT_MANAGER);
-        return contextManager;
-    };
-    /**
-     * Get the currently active context
-     */
-    ContextAPI.prototype.active = function () {
-        return this._getContextManager().active();
-    };
-    /**
-     * Execute a function with an active context
-     *
-     * @param context context to be active during function execution
-     * @param fn function to execute in a context
-     */
-    ContextAPI.prototype.with = function (context, fn) {
-        return this._getContextManager().with(context, fn);
-    };
-    /**
-     * Bind a context to a target function or event emitter
-     *
-     * @param target function or event emitter to bind
-     * @param context context to bind to the event emitter or function. Defaults to the currently active context
-     */
-    ContextAPI.prototype.bind = function (target, context) {
-        if (context === void 0) { context = this.active(); }
-        return this._getContextManager().bind(target, context);
-    };
-    ContextAPI.prototype._getContextManager = function () {
-        var _a, _b;
-        return ((_b = (_a = global_utils_1._global[global_utils_1.GLOBAL_CONTEXT_MANAGER_API_KEY]) === null || _a === void 0 ? void 0 : _a.call(global_utils_1._global, global_utils_1.API_BACKWARDS_COMPATIBILITY_VERSION)) !== null && _b !== void 0 ? _b : NOOP_CONTEXT_MANAGER);
-    };
-    /** Disable and remove the global context manager */
-    ContextAPI.prototype.disable = function () {
-        this._getContextManager().disable();
-        delete global_utils_1._global[global_utils_1.GLOBAL_CONTEXT_MANAGER_API_KEY];
-    };
-    return ContextAPI;
-}());
-exports.ContextAPI = ContextAPI;
-
-},{"./global-utils":108,"@opentelemetry/context-base":64}],108:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.API_BACKWARDS_COMPATIBILITY_VERSION = exports.makeGetter = exports._global = exports.GLOBAL_TRACE_API_KEY = exports.GLOBAL_PROPAGATION_API_KEY = exports.GLOBAL_METRICS_API_KEY = exports.GLOBAL_CONTEXT_MANAGER_API_KEY = void 0;
-var platform_1 = require("../platform");
-exports.GLOBAL_CONTEXT_MANAGER_API_KEY = Symbol.for('io.opentelemetry.js.api.context');
-exports.GLOBAL_METRICS_API_KEY = Symbol.for('io.opentelemetry.js.api.metrics');
-exports.GLOBAL_PROPAGATION_API_KEY = Symbol.for('io.opentelemetry.js.api.propagation');
-exports.GLOBAL_TRACE_API_KEY = Symbol.for('io.opentelemetry.js.api.trace');
-exports._global = platform_1._globalThis;
-/**
- * Make a function which accepts a version integer and returns the instance of an API if the version
- * is compatible, or a fallback version (usually NOOP) if it is not.
- *
- * @param requiredVersion Backwards compatibility version which is required to return the instance
- * @param instance Instance which should be returned if the required version is compatible
- * @param fallback Fallback instance, usually NOOP, which will be returned if the required version is not compatible
- */
-function makeGetter(requiredVersion, instance, fallback) {
-    return function (version) {
-        return version === requiredVersion ? instance : fallback;
-    };
-}
-exports.makeGetter = makeGetter;
-/**
- * A number which should be incremented each time a backwards incompatible
- * change is made to the API. This number is used when an API package
- * attempts to access the global API to ensure it is getting a compatible
- * version. If the global API is not compatible with the API package
- * attempting to get it, a NOOP API implementation will be returned.
- */
-exports.API_BACKWARDS_COMPATIBILITY_VERSION = 2;
-
-},{"../platform":131}],109:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MetricsAPI = void 0;
-var NoopMeterProvider_1 = require("../metrics/NoopMeterProvider");
-var global_utils_1 = require("./global-utils");
-/**
- * Singleton object which represents the entry point to the OpenTelemetry Metrics API
- */
-var MetricsAPI = /** @class */ (function () {
-    /** Empty private constructor prevents end users from constructing a new instance of the API */
-    function MetricsAPI() {
-    }
-    /** Get the singleton instance of the Metrics API */
-    MetricsAPI.getInstance = function () {
-        if (!this._instance) {
-            this._instance = new MetricsAPI();
-        }
-        return this._instance;
-    };
-    /**
-     * Set the current global meter. Returns the initialized global meter provider.
-     */
-    MetricsAPI.prototype.setGlobalMeterProvider = function (provider) {
-        if (global_utils_1._global[global_utils_1.GLOBAL_METRICS_API_KEY]) {
-            // global meter provider has already been set
-            return this.getMeterProvider();
-        }
-        global_utils_1._global[global_utils_1.GLOBAL_METRICS_API_KEY] = global_utils_1.makeGetter(global_utils_1.API_BACKWARDS_COMPATIBILITY_VERSION, provider, NoopMeterProvider_1.NOOP_METER_PROVIDER);
-        return provider;
-    };
-    /**
-     * Returns the global meter provider.
-     */
-    MetricsAPI.prototype.getMeterProvider = function () {
-        var _a, _b;
-        return ((_b = (_a = global_utils_1._global[global_utils_1.GLOBAL_METRICS_API_KEY]) === null || _a === void 0 ? void 0 : _a.call(global_utils_1._global, global_utils_1.API_BACKWARDS_COMPATIBILITY_VERSION)) !== null && _b !== void 0 ? _b : NoopMeterProvider_1.NOOP_METER_PROVIDER);
-    };
-    /**
-     * Returns a meter from the global meter provider.
-     */
-    MetricsAPI.prototype.getMeter = function (name, version) {
-        return this.getMeterProvider().getMeter(name, version);
-    };
-    /** Remove the global meter provider */
-    MetricsAPI.prototype.disable = function () {
-        delete global_utils_1._global[global_utils_1.GLOBAL_METRICS_API_KEY];
-    };
-    return MetricsAPI;
-}());
-exports.MetricsAPI = MetricsAPI;
-
-},{"../metrics/NoopMeterProvider":127,"./global-utils":108}],110:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PropagationAPI = void 0;
-var NoopTextMapPropagator_1 = require("../context/propagation/NoopTextMapPropagator");
-var TextMapPropagator_1 = require("../context/propagation/TextMapPropagator");
-var context_1 = require("./context");
-var global_utils_1 = require("./global-utils");
-var contextApi = context_1.ContextAPI.getInstance();
-/**
- * Singleton object which represents the entry point to the OpenTelemetry Propagation API
- */
-var PropagationAPI = /** @class */ (function () {
-    /** Empty private constructor prevents end users from constructing a new instance of the API */
-    function PropagationAPI() {
-    }
-    /** Get the singleton instance of the Propagator API */
-    PropagationAPI.getInstance = function () {
-        if (!this._instance) {
-            this._instance = new PropagationAPI();
-        }
-        return this._instance;
-    };
-    /**
-     * Set the current propagator. Returns the initialized propagator
-     */
-    PropagationAPI.prototype.setGlobalPropagator = function (propagator) {
-        if (global_utils_1._global[global_utils_1.GLOBAL_PROPAGATION_API_KEY]) {
-            // global propagator has already been set
-            return this._getGlobalPropagator();
-        }
-        global_utils_1._global[global_utils_1.GLOBAL_PROPAGATION_API_KEY] = global_utils_1.makeGetter(global_utils_1.API_BACKWARDS_COMPATIBILITY_VERSION, propagator, NoopTextMapPropagator_1.NOOP_TEXT_MAP_PROPAGATOR);
-        return propagator;
-    };
-    /**
-     * Inject context into a carrier to be propagated inter-process
-     *
-     * @param carrier carrier to inject context into
-     * @param setter Function used to set values on the carrier
-     * @param context Context carrying tracing data to inject. Defaults to the currently active context.
-     */
-    PropagationAPI.prototype.inject = function (carrier, setter, context) {
-        if (setter === void 0) { setter = TextMapPropagator_1.defaultTextMapSetter; }
-        if (context === void 0) { context = contextApi.active(); }
-        return this._getGlobalPropagator().inject(context, carrier, setter);
-    };
-    /**
-     * Extract context from a carrier
-     *
-     * @param carrier Carrier to extract context from
-     * @param getter Function used to extract keys from a carrier
-     * @param context Context which the newly created context will inherit from. Defaults to the currently active context.
-     */
-    PropagationAPI.prototype.extract = function (carrier, getter, context) {
-        if (getter === void 0) { getter = TextMapPropagator_1.defaultTextMapGetter; }
-        if (context === void 0) { context = contextApi.active(); }
-        return this._getGlobalPropagator().extract(context, carrier, getter);
-    };
-    /** Remove the global propagator */
-    PropagationAPI.prototype.disable = function () {
-        delete global_utils_1._global[global_utils_1.GLOBAL_PROPAGATION_API_KEY];
-    };
-    PropagationAPI.prototype._getGlobalPropagator = function () {
-        var _a, _b;
-        return ((_b = (_a = global_utils_1._global[global_utils_1.GLOBAL_PROPAGATION_API_KEY]) === null || _a === void 0 ? void 0 : _a.call(global_utils_1._global, global_utils_1.API_BACKWARDS_COMPATIBILITY_VERSION)) !== null && _b !== void 0 ? _b : NoopTextMapPropagator_1.NOOP_TEXT_MAP_PROPAGATOR);
-    };
-    return PropagationAPI;
-}());
-exports.PropagationAPI = PropagationAPI;
-
-},{"../context/propagation/NoopTextMapPropagator":116,"../context/propagation/TextMapPropagator":117,"./context":107,"./global-utils":108}],111:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.TraceAPI = void 0;
-var NoopTracerProvider_1 = require("../trace/NoopTracerProvider");
-var ProxyTracerProvider_1 = require("../trace/ProxyTracerProvider");
-var spancontext_utils_1 = require("../trace/spancontext-utils");
-var global_utils_1 = require("./global-utils");
-/**
- * Singleton object which represents the entry point to the OpenTelemetry Tracing API
- */
-var TraceAPI = /** @class */ (function () {
-    /** Empty private constructor prevents end users from constructing a new instance of the API */
-    function TraceAPI() {
-        this._proxyTracerProvider = new ProxyTracerProvider_1.ProxyTracerProvider();
-        this.isSpanContextValid = spancontext_utils_1.isSpanContextValid;
-    }
-    /** Get the singleton instance of the Trace API */
-    TraceAPI.getInstance = function () {
-        if (!this._instance) {
-            this._instance = new TraceAPI();
-        }
-        return this._instance;
-    };
-    /**
-     * Set the current global tracer. Returns the initialized global tracer provider
-     */
-    TraceAPI.prototype.setGlobalTracerProvider = function (provider) {
-        if (global_utils_1._global[global_utils_1.GLOBAL_TRACE_API_KEY]) {
-            // global tracer provider has already been set
-            return this.getTracerProvider();
-        }
-        this._proxyTracerProvider.setDelegate(provider);
-        global_utils_1._global[global_utils_1.GLOBAL_TRACE_API_KEY] = global_utils_1.makeGetter(global_utils_1.API_BACKWARDS_COMPATIBILITY_VERSION, this._proxyTracerProvider, NoopTracerProvider_1.NOOP_TRACER_PROVIDER);
-        return this.getTracerProvider();
-    };
-    /**
-     * Returns the global tracer provider.
-     */
-    TraceAPI.prototype.getTracerProvider = function () {
-        var _a, _b;
-        return ((_b = (_a = global_utils_1._global[global_utils_1.GLOBAL_TRACE_API_KEY]) === null || _a === void 0 ? void 0 : _a.call(global_utils_1._global, global_utils_1.API_BACKWARDS_COMPATIBILITY_VERSION)) !== null && _b !== void 0 ? _b : this._proxyTracerProvider);
-    };
-    /**
-     * Returns a tracer from the global tracer provider.
-     */
-    TraceAPI.prototype.getTracer = function (name, version) {
-        return this.getTracerProvider().getTracer(name, version);
-    };
-    /** Remove the global tracer provider */
-    TraceAPI.prototype.disable = function () {
-        delete global_utils_1._global[global_utils_1.GLOBAL_TRACE_API_KEY];
-        this._proxyTracerProvider = new ProxyTracerProvider_1.ProxyTracerProvider();
-    };
-    return TraceAPI;
-}());
-exports.TraceAPI = TraceAPI;
-
-},{"../trace/NoopTracerProvider":136,"../trace/ProxyTracerProvider":138,"../trace/spancontext-utils":150,"./global-utils":108}],112:[function(require,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],113:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],114:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],115:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isInstrumentationSuppressed = exports.unsuppressInstrumentation = exports.suppressInstrumentation = exports.getParentSpanContext = exports.setExtractedSpanContext = exports.setActiveSpan = exports.getActiveSpan = void 0;
-var __1 = require("../");
-var context_base_1 = require("@opentelemetry/context-base");
-/**
- * Active span key
- */
-var ACTIVE_SPAN_KEY = context_base_1.createContextKey('OpenTelemetry Context Key ACTIVE_SPAN');
-/**
- * Shared key for indicating if instrumentation should be suppressed beyond
- * this current scope.
- */
-var SUPPRESS_INSTRUMENTATION_KEY = context_base_1.createContextKey('OpenTelemetry Context Key SUPPRESS_INSTRUMENTATION');
-/**
- * Return the active span if one exists
- *
- * @param context context to get span from
- */
-function getActiveSpan(context) {
-    return context.getValue(ACTIVE_SPAN_KEY) || undefined;
-}
-exports.getActiveSpan = getActiveSpan;
-/**
- * Set the active span on a context
- *
- * @param context context to use as parent
- * @param span span to set active
- */
-function setActiveSpan(context, span) {
-    return context.setValue(ACTIVE_SPAN_KEY, span);
-}
-exports.setActiveSpan = setActiveSpan;
-/**
- * Wrap extracted span context in a NoopSpan and set as active span in a new
- * context
- *
- * @param context context to set active span on
- * @param spanContext span context to be wrapped
- */
-function setExtractedSpanContext(context, spanContext) {
-    return setActiveSpan(context, new __1.NoopSpan(spanContext));
-}
-exports.setExtractedSpanContext = setExtractedSpanContext;
-/**
- * Get the span context of the parent span if it exists,
- * or the extracted span context if there is no active
- * span.
- *
- * @param context context to get values from
- */
-function getParentSpanContext(context) {
-    var _a;
-    return (_a = getActiveSpan(context)) === null || _a === void 0 ? void 0 : _a.context();
-}
-exports.getParentSpanContext = getParentSpanContext;
-/**
- * Sets value on context to indicate that instrumentation should
- * be suppressed beyond this current scope.
- *
- * @param context context to set the suppress instrumentation value on.
- */
-function suppressInstrumentation(context) {
-    return context.setValue(SUPPRESS_INSTRUMENTATION_KEY, true);
-}
-exports.suppressInstrumentation = suppressInstrumentation;
-/**
- * Sets value on context to indicate that instrumentation should
- * no-longer be suppressed beyond this current scope.
- *
- * @param context context to set the suppress instrumentation value on.
- */
-function unsuppressInstrumentation(context) {
-    return context.setValue(SUPPRESS_INSTRUMENTATION_KEY, false);
-}
-exports.unsuppressInstrumentation = unsuppressInstrumentation;
-/**
- * Return current suppress instrumentation value for the given context,
- * if it exists.
- *
- * @param context context check for the suppress instrumentation value.
- */
-function isInstrumentationSuppressed(context) {
-    return Boolean(context.getValue(SUPPRESS_INSTRUMENTATION_KEY));
-}
-exports.isInstrumentationSuppressed = isInstrumentationSuppressed;
-
-},{"../":120,"@opentelemetry/context-base":64}],116:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NOOP_TEXT_MAP_PROPAGATOR = exports.NoopTextMapPropagator = void 0;
-/**
- * No-op implementations of {@link TextMapPropagator}.
- */
-var NoopTextMapPropagator = /** @class */ (function () {
-    function NoopTextMapPropagator() {
-    }
-    /** Noop inject function does nothing */
-    NoopTextMapPropagator.prototype.inject = function (_context, _carrier) { };
-    /** Noop extract function does nothing and returns the input context */
-    NoopTextMapPropagator.prototype.extract = function (context, _carrier) {
-        return context;
-    };
-    NoopTextMapPropagator.prototype.fields = function () {
-        return [];
-    };
-    return NoopTextMapPropagator;
-}());
-exports.NoopTextMapPropagator = NoopTextMapPropagator;
-exports.NOOP_TEXT_MAP_PROPAGATOR = new NoopTextMapPropagator();
-
-},{}],117:[function(require,module,exports){
-arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],118:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],119:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EntryTtl = void 0;
-/**
- * EntryTtl is an integer that represents number of hops an entry can propagate.
- *
- * For now, ONLY special values (0 and -1) are supported.
- */
-var EntryTtl;
-(function (EntryTtl) {
-    /**
-     * NO_PROPAGATION is considered to have local context and is used within the
-     * process it created.
-     */
-    EntryTtl[EntryTtl["NO_PROPAGATION"] = 0] = "NO_PROPAGATION";
-    /** UNLIMITED_PROPAGATION can propagate unlimited hops. */
-    EntryTtl[EntryTtl["UNLIMITED_PROPAGATION"] = -1] = "UNLIMITED_PROPAGATION";
-})(EntryTtl = exports.EntryTtl || (exports.EntryTtl = {}));
-
-},{}],120:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.propagation = exports.metrics = exports.trace = exports.context = void 0;
-__exportStar(require("./common/Exception"), exports);
-__exportStar(require("./common/Logger"), exports);
-__exportStar(require("./common/Time"), exports);
-__exportStar(require("./context/context"), exports);
-__exportStar(require("./context/propagation/TextMapPropagator"), exports);
-__exportStar(require("./context/propagation/NoopTextMapPropagator"), exports);
-__exportStar(require("./correlation_context/CorrelationContext"), exports);
-__exportStar(require("./correlation_context/EntryValue"), exports);
-__exportStar(require("./metrics/BatchObserverResult"), exports);
-__exportStar(require("./metrics/BoundInstrument"), exports);
-__exportStar(require("./metrics/Meter"), exports);
-__exportStar(require("./metrics/MeterProvider"), exports);
-__exportStar(require("./metrics/Metric"), exports);
-__exportStar(require("./metrics/NoopMeter"), exports);
-__exportStar(require("./metrics/NoopMeterProvider"), exports);
-__exportStar(require("./metrics/Observation"), exports);
-__exportStar(require("./metrics/ObserverResult"), exports);
-__exportStar(require("./trace/attributes"), exports);
-__exportStar(require("./trace/Event"), exports);
-__exportStar(require("./trace/instrumentation/Plugin"), exports);
-__exportStar(require("./trace/link_context"), exports);
-__exportStar(require("./trace/link"), exports);
-__exportStar(require("./trace/NoopLogger"), exports);
-__exportStar(require("./trace/NoopSpan"), exports);
-__exportStar(require("./trace/NoopTracer"), exports);
-__exportStar(require("./trace/NoopTracerProvider"), exports);
-__exportStar(require("./trace/ProxyTracer"), exports);
-__exportStar(require("./trace/ProxyTracerProvider"), exports);
-__exportStar(require("./trace/Sampler"), exports);
-__exportStar(require("./trace/SamplingResult"), exports);
-__exportStar(require("./trace/span_context"), exports);
-__exportStar(require("./trace/span_kind"), exports);
-__exportStar(require("./trace/span"), exports);
-__exportStar(require("./trace/SpanOptions"), exports);
-__exportStar(require("./trace/status"), exports);
-__exportStar(require("./trace/TimedEvent"), exports);
-__exportStar(require("./trace/trace_flags"), exports);
-__exportStar(require("./trace/trace_state"), exports);
-__exportStar(require("./trace/tracer_provider"), exports);
-__exportStar(require("./trace/tracer"), exports);
-var spancontext_utils_1 = require("./trace/spancontext-utils");
-Object.defineProperty(exports, "INVALID_SPANID", { enumerable: true, get: function () { return spancontext_utils_1.INVALID_SPANID; } });
-Object.defineProperty(exports, "INVALID_TRACEID", { enumerable: true, get: function () { return spancontext_utils_1.INVALID_TRACEID; } });
-Object.defineProperty(exports, "INVALID_SPAN_CONTEXT", { enumerable: true, get: function () { return spancontext_utils_1.INVALID_SPAN_CONTEXT; } });
-Object.defineProperty(exports, "isSpanContextValid", { enumerable: true, get: function () { return spancontext_utils_1.isSpanContextValid; } });
-Object.defineProperty(exports, "isValidTraceId", { enumerable: true, get: function () { return spancontext_utils_1.isValidTraceId; } });
-Object.defineProperty(exports, "isValidSpanId", { enumerable: true, get: function () { return spancontext_utils_1.isValidSpanId; } });
-var context_base_1 = require("@opentelemetry/context-base");
-Object.defineProperty(exports, "ROOT_CONTEXT", { enumerable: true, get: function () { return context_base_1.ROOT_CONTEXT; } });
-Object.defineProperty(exports, "createContextKey", { enumerable: true, get: function () { return context_base_1.createContextKey; } });
-var context_1 = require("./api/context");
-/** Entrypoint for context API */
-exports.context = context_1.ContextAPI.getInstance();
-var trace_1 = require("./api/trace");
-/** Entrypoint for trace API */
-exports.trace = trace_1.TraceAPI.getInstance();
-var metrics_1 = require("./api/metrics");
-/** Entrypoint for metrics API */
-exports.metrics = metrics_1.MetricsAPI.getInstance();
-var propagation_1 = require("./api/propagation");
-/** Entrypoint for propagation API */
-exports.propagation = propagation_1.PropagationAPI.getInstance();
-exports.default = {
-    trace: exports.trace,
-    metrics: exports.metrics,
-    context: exports.context,
-    propagation: exports.propagation,
-};
-
-},{"./api/context":107,"./api/metrics":109,"./api/propagation":110,"./api/trace":111,"./common/Exception":112,"./common/Logger":113,"./common/Time":114,"./context/context":115,"./context/propagation/NoopTextMapPropagator":116,"./context/propagation/TextMapPropagator":117,"./correlation_context/CorrelationContext":118,"./correlation_context/EntryValue":119,"./metrics/BatchObserverResult":121,"./metrics/BoundInstrument":122,"./metrics/Meter":123,"./metrics/MeterProvider":124,"./metrics/Metric":125,"./metrics/NoopMeter":126,"./metrics/NoopMeterProvider":127,"./metrics/Observation":128,"./metrics/ObserverResult":129,"./trace/Event":132,"./trace/NoopLogger":133,"./trace/NoopSpan":134,"./trace/NoopTracer":135,"./trace/NoopTracerProvider":136,"./trace/ProxyTracer":137,"./trace/ProxyTracerProvider":138,"./trace/Sampler":139,"./trace/SamplingResult":140,"./trace/SpanOptions":141,"./trace/TimedEvent":142,"./trace/attributes":143,"./trace/instrumentation/Plugin":144,"./trace/link":145,"./trace/link_context":146,"./trace/span":147,"./trace/span_context":148,"./trace/span_kind":149,"./trace/spancontext-utils":150,"./trace/status":151,"./trace/trace_flags":152,"./trace/trace_state":153,"./trace/tracer":154,"./trace/tracer_provider":155,"@opentelemetry/context-base":64}],121:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],122:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],123:[function(require,module,exports){
-arguments[4][9][0].apply(exports,arguments)
-},{"dup":9}],124:[function(require,module,exports){
-arguments[4][10][0].apply(exports,arguments)
-},{"dup":10}],125:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ValueType = void 0;
-/** The Type of value. It describes how the data is reported. */
-var ValueType;
-(function (ValueType) {
-    ValueType[ValueType["INT"] = 0] = "INT";
-    ValueType[ValueType["DOUBLE"] = 1] = "DOUBLE";
-})(ValueType = exports.ValueType || (exports.ValueType = {}));
-
-},{}],126:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NOOP_BATCH_OBSERVER_METRIC = exports.NOOP_SUM_OBSERVER_METRIC = exports.NOOP_UP_DOWN_SUM_OBSERVER_METRIC = exports.NOOP_VALUE_OBSERVER_METRIC = exports.NOOP_BOUND_BASE_OBSERVER = exports.NOOP_VALUE_RECORDER_METRIC = exports.NOOP_BOUND_VALUE_RECORDER = exports.NOOP_COUNTER_METRIC = exports.NOOP_BOUND_COUNTER = exports.NOOP_METER = exports.NoopBoundBaseObserver = exports.NoopBoundValueRecorder = exports.NoopBoundCounter = exports.NoopBatchObserverMetric = exports.NoopBaseObserverMetric = exports.NoopValueRecorderMetric = exports.NoopCounterMetric = exports.NoopMetric = exports.NoopMeter = void 0;
-/**
- * NoopMeter is a noop implementation of the {@link Meter} interface. It reuses
- * constant NoopMetrics for all of its methods.
- */
-var NoopMeter = /** @class */ (function () {
-    function NoopMeter() {
-    }
-    /**
-     * Returns constant noop value recorder.
-     * @param name the name of the metric.
-     * @param [options] the metric options.
-     */
-    NoopMeter.prototype.createValueRecorder = function (_name, _options) {
-        return exports.NOOP_VALUE_RECORDER_METRIC;
-    };
-    /**
-     * Returns a constant noop counter.
-     * @param name the name of the metric.
-     * @param [options] the metric options.
-     */
-    NoopMeter.prototype.createCounter = function (_name, _options) {
-        return exports.NOOP_COUNTER_METRIC;
-    };
-    /**
-     * Returns a constant noop UpDownCounter.
-     * @param name the name of the metric.
-     * @param [options] the metric options.
-     */
-    NoopMeter.prototype.createUpDownCounter = function (_name, _options) {
-        return exports.NOOP_COUNTER_METRIC;
-    };
-    /**
-     * Returns constant noop value observer.
-     * @param name the name of the metric.
-     * @param [options] the metric options.
-     * @param [callback] the value observer callback
-     */
-    NoopMeter.prototype.createValueObserver = function (_name, _options, _callback) {
-        return exports.NOOP_VALUE_OBSERVER_METRIC;
-    };
-    /**
-     * Returns constant noop sum observer.
-     * @param name the name of the metric.
-     * @param [options] the metric options.
-     * @param [callback] the sum observer callback
-     */
-    NoopMeter.prototype.createSumObserver = function (_name, _options, _callback) {
-        return exports.NOOP_SUM_OBSERVER_METRIC;
-    };
-    /**
-     * Returns constant noop up down sum observer.
-     * @param name the name of the metric.
-     * @param [options] the metric options.
-     * @param [callback] the up down sum observer callback
-     */
-    NoopMeter.prototype.createUpDownSumObserver = function (_name, _options, _callback) {
-        return exports.NOOP_UP_DOWN_SUM_OBSERVER_METRIC;
-    };
-    /**
-     * Returns constant noop batch observer.
-     * @param name the name of the metric.
-     * @param callback the batch observer callback
-     */
-    NoopMeter.prototype.createBatchObserver = function (_name, _callback) {
-        return exports.NOOP_BATCH_OBSERVER_METRIC;
-    };
-    return NoopMeter;
-}());
-exports.NoopMeter = NoopMeter;
-var NoopMetric = /** @class */ (function () {
-    function NoopMetric(instrument) {
-        this._instrument = instrument;
-    }
-    /**
-     * Returns a Bound Instrument associated with specified Labels.
-     * It is recommended to keep a reference to the Bound Instrument instead of
-     * always calling this method for every operations.
-     * @param labels key-values pairs that are associated with a specific metric
-     *     that you want to record.
-     */
-    NoopMetric.prototype.bind = function (_labels) {
-        return this._instrument;
-    };
-    /**
-     * Removes the Binding from the metric, if it is present.
-     * @param labels key-values pairs that are associated with a specific metric.
-     */
-    NoopMetric.prototype.unbind = function (_labels) {
-        return;
-    };
-    /**
-     * Clears all timeseries from the Metric.
-     */
-    NoopMetric.prototype.clear = function () {
-        return;
-    };
-    return NoopMetric;
-}());
-exports.NoopMetric = NoopMetric;
-var NoopCounterMetric = /** @class */ (function (_super) {
-    __extends(NoopCounterMetric, _super);
-    function NoopCounterMetric() {
-        return _super !== null && _super.apply(this, arguments) || this;
-    }
-    NoopCounterMetric.prototype.add = function (value, labels) {
-        this.bind(labels).add(value);
-    };
-    return NoopCounterMetric;
-}(NoopMetric));
-exports.NoopCounterMetric = NoopCounterMetric;
-var NoopValueRecorderMetric = /** @class */ (function (_super) {
-    __extends(NoopValueRecorderMetric, _super);
-    function NoopValueRecorderMetric() {
-        return _super !== null && _super.apply(this, arguments) || this;
-    }
-    NoopValueRecorderMetric.prototype.record = function (value, labels) {
-        this.bind(labels).record(value);
-    };
-    return NoopValueRecorderMetric;
-}(NoopMetric));
-exports.NoopValueRecorderMetric = NoopValueRecorderMetric;
-var NoopBaseObserverMetric = /** @class */ (function (_super) {
-    __extends(NoopBaseObserverMetric, _super);
-    function NoopBaseObserverMetric() {
-        return _super !== null && _super.apply(this, arguments) || this;
-    }
-    NoopBaseObserverMetric.prototype.observation = function () {
-        return {
-            observer: this,
-            value: 0,
-        };
-    };
-    return NoopBaseObserverMetric;
-}(NoopMetric));
-exports.NoopBaseObserverMetric = NoopBaseObserverMetric;
-var NoopBatchObserverMetric = /** @class */ (function (_super) {
-    __extends(NoopBatchObserverMetric, _super);
-    function NoopBatchObserverMetric() {
-        return _super !== null && _super.apply(this, arguments) || this;
-    }
-    return NoopBatchObserverMetric;
-}(NoopMetric));
-exports.NoopBatchObserverMetric = NoopBatchObserverMetric;
-var NoopBoundCounter = /** @class */ (function () {
-    function NoopBoundCounter() {
-    }
-    NoopBoundCounter.prototype.add = function (_value) {
-        return;
-    };
-    return NoopBoundCounter;
-}());
-exports.NoopBoundCounter = NoopBoundCounter;
-var NoopBoundValueRecorder = /** @class */ (function () {
-    function NoopBoundValueRecorder() {
-    }
-    NoopBoundValueRecorder.prototype.record = function (_value, _correlationContext, _spanContext) {
-        return;
-    };
-    return NoopBoundValueRecorder;
-}());
-exports.NoopBoundValueRecorder = NoopBoundValueRecorder;
-var NoopBoundBaseObserver = /** @class */ (function () {
-    function NoopBoundBaseObserver() {
-    }
-    NoopBoundBaseObserver.prototype.update = function (_value) { };
-    return NoopBoundBaseObserver;
-}());
-exports.NoopBoundBaseObserver = NoopBoundBaseObserver;
-exports.NOOP_METER = new NoopMeter();
-exports.NOOP_BOUND_COUNTER = new NoopBoundCounter();
-exports.NOOP_COUNTER_METRIC = new NoopCounterMetric(exports.NOOP_BOUND_COUNTER);
-exports.NOOP_BOUND_VALUE_RECORDER = new NoopBoundValueRecorder();
-exports.NOOP_VALUE_RECORDER_METRIC = new NoopValueRecorderMetric(exports.NOOP_BOUND_VALUE_RECORDER);
-exports.NOOP_BOUND_BASE_OBSERVER = new NoopBoundBaseObserver();
-exports.NOOP_VALUE_OBSERVER_METRIC = new NoopBaseObserverMetric(exports.NOOP_BOUND_BASE_OBSERVER);
-exports.NOOP_UP_DOWN_SUM_OBSERVER_METRIC = new NoopBaseObserverMetric(exports.NOOP_BOUND_BASE_OBSERVER);
-exports.NOOP_SUM_OBSERVER_METRIC = new NoopBaseObserverMetric(exports.NOOP_BOUND_BASE_OBSERVER);
-exports.NOOP_BATCH_OBSERVER_METRIC = new NoopBatchObserverMetric();
-
-},{}],127:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NOOP_METER_PROVIDER = exports.NoopMeterProvider = void 0;
-var NoopMeter_1 = require("./NoopMeter");
-/**
- * An implementation of the {@link MeterProvider} which returns an impotent Meter
- * for all calls to `getMeter`
- */
-var NoopMeterProvider = /** @class */ (function () {
-    function NoopMeterProvider() {
-    }
-    NoopMeterProvider.prototype.getMeter = function (_name, _version) {
-        return NoopMeter_1.NOOP_METER;
-    };
-    return NoopMeterProvider;
-}());
-exports.NoopMeterProvider = NoopMeterProvider;
-exports.NOOP_METER_PROVIDER = new NoopMeterProvider();
-
-},{"./NoopMeter":126}],128:[function(require,module,exports){
-arguments[4][13][0].apply(exports,arguments)
-},{"dup":13}],129:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],130:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports._globalThis = void 0;
-/** only globals that common to node and browsers are allowed */
-// eslint-disable-next-line node/no-unsupported-features/es-builtins, no-undef
-exports._globalThis = typeof globalThis === 'object' ? globalThis : window;
-
-},{}],131:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./globalThis"), exports);
-
-},{"./globalThis":130}],132:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],133:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NoopLogger = void 0;
-/** No-op implementation of Logger */
-var NoopLogger = /** @class */ (function () {
-    function NoopLogger() {
-    }
-    // By default does nothing
-    NoopLogger.prototype.debug = function (_message) {
-        var _args = [];
-        for (var _i = 1; _i < arguments.length; _i++) {
-            _args[_i - 1] = arguments[_i];
-        }
-    };
-    // By default does nothing
-    NoopLogger.prototype.error = function (_message) {
-        var _args = [];
-        for (var _i = 1; _i < arguments.length; _i++) {
-            _args[_i - 1] = arguments[_i];
-        }
-    };
-    // By default does nothing
-    NoopLogger.prototype.warn = function (_message) {
-        var _args = [];
-        for (var _i = 1; _i < arguments.length; _i++) {
-            _args[_i - 1] = arguments[_i];
-        }
-    };
-    // By default does nothing
-    NoopLogger.prototype.info = function (_message) {
-        var _args = [];
-        for (var _i = 1; _i < arguments.length; _i++) {
-            _args[_i - 1] = arguments[_i];
-        }
-    };
-    return NoopLogger;
-}());
-exports.NoopLogger = NoopLogger;
-
-},{}],134:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NOOP_SPAN = exports.NoopSpan = void 0;
-var spancontext_utils_1 = require("./spancontext-utils");
-/**
- * The NoopSpan is the default {@link Span} that is used when no Span
- * implementation is available. All operations are no-op including context
- * propagation.
- */
-var NoopSpan = /** @class */ (function () {
-    function NoopSpan(_spanContext) {
-        if (_spanContext === void 0) { _spanContext = spancontext_utils_1.INVALID_SPAN_CONTEXT; }
-        this._spanContext = _spanContext;
-    }
-    // Returns a SpanContext.
-    NoopSpan.prototype.context = function () {
-        return this._spanContext;
-    };
-    // By default does nothing
-    NoopSpan.prototype.setAttribute = function (_key, _value) {
-        return this;
-    };
-    // By default does nothing
-    NoopSpan.prototype.setAttributes = function (_attributes) {
-        return this;
-    };
-    // By default does nothing
-    NoopSpan.prototype.addEvent = function (_name, _attributes) {
-        return this;
-    };
-    // By default does nothing
-    NoopSpan.prototype.setStatus = function (_status) {
-        return this;
-    };
-    // By default does nothing
-    NoopSpan.prototype.updateName = function (_name) {
-        return this;
-    };
-    // By default does nothing
-    NoopSpan.prototype.end = function (_endTime) { };
-    // isRecording always returns false for noopSpan.
-    NoopSpan.prototype.isRecording = function () {
-        return false;
-    };
-    // By default does nothing
-    NoopSpan.prototype.recordException = function (_exception, _time) { };
-    return NoopSpan;
-}());
-exports.NoopSpan = NoopSpan;
-exports.NOOP_SPAN = new NoopSpan();
-
-},{"./spancontext-utils":150}],135:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NOOP_TRACER = exports.NoopTracer = void 0;
-var NoopSpan_1 = require("./NoopSpan");
-var spancontext_utils_1 = require("./spancontext-utils");
-var context_1 = require("../context/context");
-/**
- * No-op implementations of {@link Tracer}.
- */
-var NoopTracer = /** @class */ (function () {
-    function NoopTracer() {
-    }
-    NoopTracer.prototype.getCurrentSpan = function () {
-        return NoopSpan_1.NOOP_SPAN;
-    };
-    // startSpan starts a noop span.
-    NoopTracer.prototype.startSpan = function (name, options, context) {
-        var root = Boolean(options === null || options === void 0 ? void 0 : options.root);
-        if (root) {
-            return NoopSpan_1.NOOP_SPAN;
-        }
-        var parentFromContext = context && context_1.getParentSpanContext(context);
-        if (isSpanContext(parentFromContext) &&
-            spancontext_utils_1.isSpanContextValid(parentFromContext)) {
-            return new NoopSpan_1.NoopSpan(parentFromContext);
-        }
-        else {
-            return NoopSpan_1.NOOP_SPAN;
-        }
-    };
-    NoopTracer.prototype.withSpan = function (span, fn) {
-        return fn();
-    };
-    NoopTracer.prototype.bind = function (target, _span) {
-        return target;
-    };
-    return NoopTracer;
-}());
-exports.NoopTracer = NoopTracer;
-function isSpanContext(spanContext) {
-    return (typeof spanContext === 'object' &&
-        typeof spanContext['spanId'] === 'string' &&
-        typeof spanContext['traceId'] === 'string' &&
-        typeof spanContext['traceFlags'] === 'number');
-}
-exports.NOOP_TRACER = new NoopTracer();
-
-},{"../context/context":115,"./NoopSpan":134,"./spancontext-utils":150}],136:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NOOP_TRACER_PROVIDER = exports.NoopTracerProvider = void 0;
-var NoopTracer_1 = require("./NoopTracer");
-/**
- * An implementation of the {@link TracerProvider} which returns an impotent
- * Tracer for all calls to `getTracer`.
- *
- * All operations are no-op.
- */
-var NoopTracerProvider = /** @class */ (function () {
-    function NoopTracerProvider() {
-    }
-    NoopTracerProvider.prototype.getTracer = function (_name, _version) {
-        return NoopTracer_1.NOOP_TRACER;
-    };
-    return NoopTracerProvider;
-}());
-exports.NoopTracerProvider = NoopTracerProvider;
-exports.NOOP_TRACER_PROVIDER = new NoopTracerProvider();
-
-},{"./NoopTracer":135}],137:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProxyTracer = void 0;
-var NoopTracer_1 = require("./NoopTracer");
-/**
- * Proxy tracer provided by the proxy tracer provider
- */
-var ProxyTracer = /** @class */ (function () {
-    function ProxyTracer(_provider, name, version) {
-        this._provider = _provider;
-        this.name = name;
-        this.version = version;
-    }
-    ProxyTracer.prototype.getCurrentSpan = function () {
-        return this._getTracer().getCurrentSpan();
-    };
-    ProxyTracer.prototype.startSpan = function (name, options) {
-        return this._getTracer().startSpan(name, options);
-    };
-    ProxyTracer.prototype.withSpan = function (span, fn) {
-        return this._getTracer().withSpan(span, fn);
-    };
-    ProxyTracer.prototype.bind = function (target, span) {
-        return this._getTracer().bind(target, span);
-    };
-    /**
-     * Try to get a tracer from the proxy tracer provider.
-     * If the proxy tracer provider has no delegate, return a noop tracer.
-     */
-    ProxyTracer.prototype._getTracer = function () {
-        if (this._delegate) {
-            return this._delegate;
-        }
-        var tracer = this._provider.getDelegateTracer(this.name, this.version);
-        if (!tracer) {
-            return NoopTracer_1.NOOP_TRACER;
-        }
-        this._delegate = tracer;
-        return this._delegate;
-    };
-    return ProxyTracer;
-}());
-exports.ProxyTracer = ProxyTracer;
-
-},{"./NoopTracer":135}],138:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProxyTracerProvider = void 0;
-var ProxyTracer_1 = require("./ProxyTracer");
-var NoopTracerProvider_1 = require("./NoopTracerProvider");
-/**
- * Tracer provider which provides {@link ProxyTracer}s.
- *
- * Before a delegate is set, tracers provided are NoOp.
- *   When a delegate is set, traces are provided from the delegate.
- *   When a delegate is set after tracers have already been provided,
- *   all tracers already provided will use the provided delegate implementation.
- */
-var ProxyTracerProvider = /** @class */ (function () {
-    function ProxyTracerProvider() {
-    }
-    /**
-     * Get a {@link ProxyTracer}
-     */
-    ProxyTracerProvider.prototype.getTracer = function (name, version) {
-        var _a;
-        return ((_a = this.getDelegateTracer(name, version)) !== null && _a !== void 0 ? _a : new ProxyTracer_1.ProxyTracer(this, name, version));
-    };
-    ProxyTracerProvider.prototype.getDelegate = function () {
-        var _a;
-        return (_a = this._delegate) !== null && _a !== void 0 ? _a : NoopTracerProvider_1.NOOP_TRACER_PROVIDER;
-    };
-    /**
-     * Set the delegate tracer provider
-     */
-    ProxyTracerProvider.prototype.setDelegate = function (delegate) {
-        this._delegate = delegate;
-    };
-    ProxyTracerProvider.prototype.getDelegateTracer = function (name, version) {
-        var _a;
-        return (_a = this._delegate) === null || _a === void 0 ? void 0 : _a.getTracer(name, version);
-    };
-    return ProxyTracerProvider;
-}());
-exports.ProxyTracerProvider = ProxyTracerProvider;
-
-},{"./NoopTracerProvider":136,"./ProxyTracer":137}],139:[function(require,module,exports){
-arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],140:[function(require,module,exports){
-arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],141:[function(require,module,exports){
-arguments[4][47][0].apply(exports,arguments)
-},{"dup":47}],142:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],143:[function(require,module,exports){
-arguments[4][48][0].apply(exports,arguments)
-},{"dup":48}],144:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],145:[function(require,module,exports){
-arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],146:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],147:[function(require,module,exports){
-arguments[4][52][0].apply(exports,arguments)
-},{"dup":52}],148:[function(require,module,exports){
-arguments[4][53][0].apply(exports,arguments)
-},{"dup":53}],149:[function(require,module,exports){
-arguments[4][54][0].apply(exports,arguments)
-},{"dup":54}],150:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isSpanContextValid = exports.isValidSpanId = exports.isValidTraceId = exports.INVALID_SPAN_CONTEXT = exports.INVALID_TRACEID = exports.INVALID_SPANID = void 0;
-var trace_flags_1 = require("./trace_flags");
-var VALID_TRACEID_REGEX = /^([0-9a-f]{32})$/i;
-var VALID_SPANID_REGEX = /^[0-9a-f]{16}$/i;
-exports.INVALID_SPANID = '0000000000000000';
-exports.INVALID_TRACEID = '00000000000000000000000000000000';
-exports.INVALID_SPAN_CONTEXT = {
-    traceId: exports.INVALID_TRACEID,
-    spanId: exports.INVALID_SPANID,
-    traceFlags: trace_flags_1.TraceFlags.NONE,
-};
-function isValidTraceId(traceId) {
-    return VALID_TRACEID_REGEX.test(traceId) && traceId !== exports.INVALID_TRACEID;
-}
-exports.isValidTraceId = isValidTraceId;
-function isValidSpanId(spanId) {
-    return VALID_SPANID_REGEX.test(spanId) && spanId !== exports.INVALID_SPANID;
-}
-exports.isValidSpanId = isValidSpanId;
-/**
- * Returns true if this {@link SpanContext} is valid.
- * @return true if this {@link SpanContext} is valid.
- */
-function isSpanContextValid(spanContext) {
-    return (isValidTraceId(spanContext.traceId) && isValidSpanId(spanContext.spanId));
-}
-exports.isSpanContextValid = isSpanContextValid;
-
-},{"./trace_flags":152}],151:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.StatusCode = void 0;
-/**
- * An enumeration of status codes.
- */
-var StatusCode;
-(function (StatusCode) {
-    /**
-     * The operation has been validated by an Application developer or
-     * Operator to have completed successfully.
-     */
-    StatusCode[StatusCode["OK"] = 0] = "OK";
-    /**
-     * The default status.
-     */
-    StatusCode[StatusCode["UNSET"] = 1] = "UNSET";
-    /**
-     * The operation contains an error.
-     */
-    StatusCode[StatusCode["ERROR"] = 2] = "ERROR";
-})(StatusCode = exports.StatusCode || (exports.StatusCode = {}));
-
-},{}],152:[function(require,module,exports){
-arguments[4][57][0].apply(exports,arguments)
-},{"dup":57}],153:[function(require,module,exports){
-arguments[4][58][0].apply(exports,arguments)
-},{"dup":58}],154:[function(require,module,exports){
-arguments[4][59][0].apply(exports,arguments)
-},{"dup":59}],155:[function(require,module,exports){
-arguments[4][60][0].apply(exports,arguments)
-},{"dup":60}],156:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./platform"), exports);
 __exportStar(require("./zipkin"), exports);
 
-},{"./platform":157,"./zipkin":161}],157:[function(require,module,exports){
+},{"./platform":68,"./zipkin":73}],68:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -6574,12 +3104,12 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
     o[k2] = m[k];
 }));
 var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./util"), exports);
 
-},{"./util":158}],158:[function(require,module,exports){
+},{"./util":69}],69:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -6598,13 +3128,17 @@ __exportStar(require("./util"), exports);
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.prepareSend = void 0;
+const api_1 = require("@opentelemetry/api");
 const core_1 = require("@opentelemetry/core");
 /**
  * Prepares send function that will send spans to the remote Zipkin service.
+ * @param urlStr - url to send spans
+ * @param headers - headers
+ * send
  */
-function prepareSend(logger, urlStr, headers) {
+function prepareSend(urlStr, headers) {
     let xhrHeaders;
-    const useBeacon = navigator.sendBeacon && !headers;
+    const useBeacon = typeof navigator.sendBeacon === 'function' && !headers;
     if (headers) {
         xhrHeaders = Object.assign({ Accept: 'application/json', 'Content-Type': 'application/json' }, headers);
     }
@@ -6613,15 +3147,15 @@ function prepareSend(logger, urlStr, headers) {
      */
     return function send(zipkinSpans, done) {
         if (zipkinSpans.length === 0) {
-            logger.debug('Zipkin send with empty spans');
+            api_1.diag.debug('Zipkin send with empty spans');
             return done({ code: core_1.ExportResultCode.SUCCESS });
         }
         const payload = JSON.stringify(zipkinSpans);
         if (useBeacon) {
-            sendWithBeacon(payload, done, urlStr, logger);
+            sendWithBeacon(payload, done, urlStr);
         }
         else {
-            sendWithXhr(payload, done, urlStr, logger, xhrHeaders);
+            sendWithXhr(payload, done, urlStr, xhrHeaders);
         }
     };
 }
@@ -6631,11 +3165,10 @@ exports.prepareSend = prepareSend;
  * @param data
  * @param done
  * @param urlStr
- * @param logger
  */
-function sendWithBeacon(data, done, urlStr, logger) {
+function sendWithBeacon(data, done, urlStr) {
     if (navigator.sendBeacon(urlStr, data)) {
-        logger.debug('sendBeacon - can send', data);
+        api_1.diag.debug('sendBeacon - can send', data);
         done({ code: core_1.ExportResultCode.SUCCESS });
     }
     else {
@@ -6650,10 +3183,9 @@ function sendWithBeacon(data, done, urlStr, logger) {
  * @param data
  * @param done
  * @param urlStr
- * @param logger
  * @param xhrHeaders
  */
-function sendWithXhr(data, done, urlStr, logger, xhrHeaders = {}) {
+function sendWithXhr(data, done, urlStr, xhrHeaders = {}) {
     const xhr = new window.XMLHttpRequest();
     xhr.open('POST', urlStr);
     Object.entries(xhrHeaders).forEach(([k, v]) => {
@@ -6662,7 +3194,7 @@ function sendWithXhr(data, done, urlStr, logger, xhrHeaders = {}) {
     xhr.onreadystatechange = () => {
         if (xhr.readyState === XMLHttpRequest.DONE) {
             const statusCode = xhr.status || 0;
-            logger.debug('Zipkin response status code: %d, body: %s', statusCode, data);
+            api_1.diag.debug(`Zipkin response status code: ${statusCode}, body: ${data}`);
             if (xhr.status >= 200 && xhr.status < 400) {
                 return done({ code: core_1.ExportResultCode.SUCCESS });
             }
@@ -6679,11 +3211,11 @@ function sendWithXhr(data, done, urlStr, logger, xhrHeaders = {}) {
         return done({ code: core_1.ExportResultCode.FAILED });
     };
     // Issue request to remote service
-    logger.debug('Zipkin request payload: %s', data);
+    api_1.diag.debug(`Zipkin request payload: ${data}`);
     xhr.send(data);
 }
 
-},{"@opentelemetry/core":84}],159:[function(require,module,exports){
+},{"@opentelemetry/api":33,"@opentelemetry/core":83}],70:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -6701,7 +3233,7 @@ function sendWithXhr(data, done, urlStr, logger, xhrHeaders = {}) {
  * limitations under the License.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports._toZipkinAnnotations = exports._toZipkinTags = exports.toZipkinSpan = exports.statusDescriptionTagName = exports.statusCodeTagName = void 0;
+exports._toZipkinAnnotations = exports._toZipkinTags = exports.toZipkinSpan = exports.defaultStatusErrorTagName = exports.defaultStatusCodeTagName = void 0;
 const api = require("@opentelemetry/api");
 const core_1 = require("@opentelemetry/core");
 const zipkinTypes = require("./types");
@@ -6713,23 +3245,23 @@ const ZIPKIN_SPAN_KIND_MAPPING = {
     // When absent, the span is local.
     [api.SpanKind.INTERNAL]: undefined,
 };
-exports.statusCodeTagName = 'ot.status_code';
-exports.statusDescriptionTagName = 'ot.status_description';
+exports.defaultStatusCodeTagName = 'otel.status_code';
+exports.defaultStatusErrorTagName = 'error';
 /**
  * Translate OpenTelemetry ReadableSpan to ZipkinSpan format
  * @param span Span to be translated
  */
-function toZipkinSpan(span, serviceName, statusCodeTagName, statusDescriptionTagName) {
+function toZipkinSpan(span, serviceName, statusCodeTagName, statusErrorTagName) {
     const zipkinSpan = {
-        traceId: span.spanContext.traceId,
+        traceId: span.spanContext().traceId,
         parentId: span.parentSpanId,
         name: span.name,
-        id: span.spanContext.spanId,
+        id: span.spanContext().spanId,
         kind: ZIPKIN_SPAN_KIND_MAPPING[span.kind],
         timestamp: core_1.hrTimeToMicroseconds(span.startTime),
         duration: core_1.hrTimeToMicroseconds(span.duration),
         localEndpoint: { serviceName },
-        tags: _toZipkinTags(span.attributes, span.status, statusCodeTagName, statusDescriptionTagName, span.resource),
+        tags: _toZipkinTags(span.attributes, span.status, statusCodeTagName, statusErrorTagName, span.resource),
         annotations: span.events.length
             ? _toZipkinAnnotations(span.events)
             : undefined,
@@ -6737,15 +3269,17 @@ function toZipkinSpan(span, serviceName, statusCodeTagName, statusDescriptionTag
     return zipkinSpan;
 }
 exports.toZipkinSpan = toZipkinSpan;
-/** Converts OpenTelemetry Attributes and Status to Zipkin Tags format. */
-function _toZipkinTags(attributes, status, statusCodeTagName, statusDescriptionTagName, resource) {
+/** Converts OpenTelemetry SpanAttributes and SpanStatus to Zipkin Tags format. */
+function _toZipkinTags(attributes, status, statusCodeTagName, statusErrorTagName, resource) {
     const tags = {};
     for (const key of Object.keys(attributes)) {
         tags[key] = String(attributes[key]);
     }
-    tags[statusCodeTagName] = String(api.StatusCode[status.code]);
-    if (status.message) {
-        tags[statusDescriptionTagName] = status.message;
+    if (status.code !== api.SpanStatusCode.UNSET) {
+        tags[statusCodeTagName] = String(api.SpanStatusCode[status.code]);
+    }
+    if (status.code === api.SpanStatusCode.ERROR && status.message) {
+        tags[statusErrorTagName] = status.message;
     }
     Object.keys(resource.attributes).forEach(name => (tags[name] = String(resource.attributes[name])));
     return tags;
@@ -6762,7 +3296,7 @@ function _toZipkinAnnotations(events) {
 }
 exports._toZipkinAnnotations = _toZipkinAnnotations;
 
-},{"./types":160,"@opentelemetry/api":175,"@opentelemetry/core":84}],160:[function(require,module,exports){
+},{"./types":71,"@opentelemetry/api":33,"@opentelemetry/core":83}],71:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -6811,7 +3345,18 @@ var SpanKind;
     SpanKind["PRODUCER"] = "PRODUCER";
 })(SpanKind = exports.SpanKind || (exports.SpanKind = {}));
 
-},{}],161:[function(require,module,exports){
+},{}],72:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.prepareGetHeaders = void 0;
+function prepareGetHeaders(getExportRequestHeaders) {
+    return function () {
+        return getExportRequestHeaders();
+    };
+}
+exports.prepareGetHeaders = prepareGetHeaders;
+
+},{}],73:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -6830,10 +3375,12 @@ var SpanKind;
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ZipkinExporter = void 0;
+const api_1 = require("@opentelemetry/api");
 const core_1 = require("@opentelemetry/core");
 const index_1 = require("./platform/index");
 const transform_1 = require("./transform");
-const resources_1 = require("@opentelemetry/resources");
+const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
+const utils_1 = require("./utils");
 /**
  * Zipkin Exporter
  */
@@ -6841,24 +3388,29 @@ class ZipkinExporter {
     constructor(config = {}) {
         this.DEFAULT_SERVICE_NAME = 'OpenTelemetry Service';
         this._sendingPromises = [];
-        const urlStr = config.url || ZipkinExporter.DEFAULT_URL;
-        this._logger = config.logger || new core_1.NoopLogger();
-        this._send = index_1.prepareSend(this._logger, urlStr, config.headers);
+        this._urlStr = config.url || core_1.getEnv().OTEL_EXPORTER_ZIPKIN_ENDPOINT;
+        this._send = index_1.prepareSend(this._urlStr, config.headers);
         this._serviceName = config.serviceName;
-        this._statusCodeTagName = config.statusCodeTagName || transform_1.statusCodeTagName;
+        this._statusCodeTagName = config.statusCodeTagName || transform_1.defaultStatusCodeTagName;
         this._statusDescriptionTagName =
-            config.statusDescriptionTagName || transform_1.statusDescriptionTagName;
+            config.statusDescriptionTagName || transform_1.defaultStatusErrorTagName;
         this._isShutdown = false;
+        if (typeof config.getExportRequestHeaders === 'function') {
+            this._getHeaders = utils_1.prepareGetHeaders(config.getExportRequestHeaders);
+        }
+        else {
+            // noop
+            this._beforeSend = function () { };
+        }
     }
     /**
      * Export spans.
      */
     export(spans, resultCallback) {
-        if (typeof this._serviceName !== 'string') {
-            this._serviceName = String(spans[0].resource.attributes[resources_1.SERVICE_RESOURCE.NAME] ||
-                this.DEFAULT_SERVICE_NAME);
-        }
-        this._logger.debug('Zipkin exporter export');
+        const serviceName = String(this._serviceName ||
+            spans[0].resource.attributes[semantic_conventions_1.SemanticResourceAttributes.SERVICE_NAME] ||
+            this.DEFAULT_SERVICE_NAME);
+        api_1.diag.debug('Zipkin exporter export');
         if (this._isShutdown) {
             setTimeout(() => resultCallback({
                 code: core_1.ExportResultCode.FAILED,
@@ -6867,20 +3419,23 @@ class ZipkinExporter {
             return;
         }
         const promise = new Promise(resolve => {
-            this._sendSpans(spans, this._serviceName, result => {
+            this._sendSpans(spans, serviceName, result => {
                 resolve();
                 resultCallback(result);
-                const index = this._sendingPromises.indexOf(promise);
-                this._sendingPromises.splice(index, 1);
             });
         });
         this._sendingPromises.push(promise);
+        const popPromise = () => {
+            const index = this._sendingPromises.indexOf(promise);
+            this._sendingPromises.splice(index, 1);
+        };
+        promise.then(popPromise, popPromise);
     }
     /**
      * Shutdown exporter. Noop operation in this exporter.
      */
     shutdown() {
-        this._logger.debug('Zipkin exporter shutdown');
+        api_1.diag.debug('Zipkin exporter shutdown');
         this._isShutdown = true;
         return new Promise((resolve, reject) => {
             Promise.all(this._sendingPromises).then(() => {
@@ -6889,10 +3444,24 @@ class ZipkinExporter {
         });
     }
     /**
+     * if user defines getExportRequestHeaders in config then this will be called
+     * everytime before send, otherwise it will be replaced with noop in
+     * constructor
+     * @default noop
+     */
+    _beforeSend() {
+        if (this._getHeaders) {
+            this._send = index_1.prepareSend(this._urlStr, this._getHeaders());
+        }
+    }
+    /**
      * Transform spans and sends to Zipkin service.
      */
     _sendSpans(spans, serviceName, done) {
-        const zipkinSpans = spans.map(span => transform_1.toZipkinSpan(span, serviceName, this._statusCodeTagName, this._statusDescriptionTagName));
+        const zipkinSpans = spans.map(span => transform_1.toZipkinSpan(span, String(span.attributes[semantic_conventions_1.SemanticResourceAttributes.SERVICE_NAME] ||
+            span.resource.attributes[semantic_conventions_1.SemanticResourceAttributes.SERVICE_NAME] ||
+            serviceName), this._statusCodeTagName, this._statusDescriptionTagName));
+        this._beforeSend();
         return this._send(zipkinSpans, (result) => {
             if (done) {
                 return done(result);
@@ -6901,107 +3470,8 @@ class ZipkinExporter {
     }
 }
 exports.ZipkinExporter = ZipkinExporter;
-ZipkinExporter.DEFAULT_URL = 'http://localhost:9411/api/v2/spans';
 
-},{"./platform/index":157,"./transform":159,"@opentelemetry/core":84,"@opentelemetry/resources":361}],162:[function(require,module,exports){
-arguments[4][107][0].apply(exports,arguments)
-},{"./global-utils":163,"@opentelemetry/context-base":64,"dup":107}],163:[function(require,module,exports){
-arguments[4][108][0].apply(exports,arguments)
-},{"../platform":186,"dup":108}],164:[function(require,module,exports){
-arguments[4][109][0].apply(exports,arguments)
-},{"../metrics/NoopMeterProvider":182,"./global-utils":163,"dup":109}],165:[function(require,module,exports){
-arguments[4][110][0].apply(exports,arguments)
-},{"../context/propagation/NoopTextMapPropagator":171,"../context/propagation/TextMapPropagator":172,"./context":162,"./global-utils":163,"dup":110}],166:[function(require,module,exports){
-arguments[4][111][0].apply(exports,arguments)
-},{"../trace/NoopTracerProvider":191,"../trace/ProxyTracerProvider":193,"../trace/spancontext-utils":205,"./global-utils":163,"dup":111}],167:[function(require,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],168:[function(require,module,exports){
-arguments[4][113][0].apply(exports,arguments)
-},{"dup":113}],169:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],170:[function(require,module,exports){
-arguments[4][115][0].apply(exports,arguments)
-},{"../":175,"@opentelemetry/context-base":64,"dup":115}],171:[function(require,module,exports){
-arguments[4][116][0].apply(exports,arguments)
-},{"dup":116}],172:[function(require,module,exports){
-arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],173:[function(require,module,exports){
-arguments[4][118][0].apply(exports,arguments)
-},{"dup":118}],174:[function(require,module,exports){
-arguments[4][119][0].apply(exports,arguments)
-},{"dup":119}],175:[function(require,module,exports){
-arguments[4][120][0].apply(exports,arguments)
-},{"./api/context":162,"./api/metrics":164,"./api/propagation":165,"./api/trace":166,"./common/Exception":167,"./common/Logger":168,"./common/Time":169,"./context/context":170,"./context/propagation/NoopTextMapPropagator":171,"./context/propagation/TextMapPropagator":172,"./correlation_context/CorrelationContext":173,"./correlation_context/EntryValue":174,"./metrics/BatchObserverResult":176,"./metrics/BoundInstrument":177,"./metrics/Meter":178,"./metrics/MeterProvider":179,"./metrics/Metric":180,"./metrics/NoopMeter":181,"./metrics/NoopMeterProvider":182,"./metrics/Observation":183,"./metrics/ObserverResult":184,"./trace/Event":187,"./trace/NoopLogger":188,"./trace/NoopSpan":189,"./trace/NoopTracer":190,"./trace/NoopTracerProvider":191,"./trace/ProxyTracer":192,"./trace/ProxyTracerProvider":193,"./trace/Sampler":194,"./trace/SamplingResult":195,"./trace/SpanOptions":196,"./trace/TimedEvent":197,"./trace/attributes":198,"./trace/instrumentation/Plugin":199,"./trace/link":200,"./trace/link_context":201,"./trace/span":202,"./trace/span_context":203,"./trace/span_kind":204,"./trace/spancontext-utils":205,"./trace/status":206,"./trace/trace_flags":207,"./trace/trace_state":208,"./trace/tracer":209,"./trace/tracer_provider":210,"@opentelemetry/context-base":64,"dup":120}],176:[function(require,module,exports){
-arguments[4][121][0].apply(exports,arguments)
-},{"dup":121}],177:[function(require,module,exports){
-arguments[4][122][0].apply(exports,arguments)
-},{"dup":122}],178:[function(require,module,exports){
-arguments[4][9][0].apply(exports,arguments)
-},{"dup":9}],179:[function(require,module,exports){
-arguments[4][10][0].apply(exports,arguments)
-},{"dup":10}],180:[function(require,module,exports){
-arguments[4][125][0].apply(exports,arguments)
-},{"dup":125}],181:[function(require,module,exports){
-arguments[4][126][0].apply(exports,arguments)
-},{"dup":126}],182:[function(require,module,exports){
-arguments[4][127][0].apply(exports,arguments)
-},{"./NoopMeter":181,"dup":127}],183:[function(require,module,exports){
-arguments[4][13][0].apply(exports,arguments)
-},{"dup":13}],184:[function(require,module,exports){
-arguments[4][129][0].apply(exports,arguments)
-},{"dup":129}],185:[function(require,module,exports){
-arguments[4][130][0].apply(exports,arguments)
-},{"dup":130}],186:[function(require,module,exports){
-arguments[4][131][0].apply(exports,arguments)
-},{"./globalThis":185,"dup":131}],187:[function(require,module,exports){
-arguments[4][132][0].apply(exports,arguments)
-},{"dup":132}],188:[function(require,module,exports){
-arguments[4][133][0].apply(exports,arguments)
-},{"dup":133}],189:[function(require,module,exports){
-arguments[4][134][0].apply(exports,arguments)
-},{"./spancontext-utils":205,"dup":134}],190:[function(require,module,exports){
-arguments[4][135][0].apply(exports,arguments)
-},{"../context/context":170,"./NoopSpan":189,"./spancontext-utils":205,"dup":135}],191:[function(require,module,exports){
-arguments[4][136][0].apply(exports,arguments)
-},{"./NoopTracer":190,"dup":136}],192:[function(require,module,exports){
-arguments[4][137][0].apply(exports,arguments)
-},{"./NoopTracer":190,"dup":137}],193:[function(require,module,exports){
-arguments[4][138][0].apply(exports,arguments)
-},{"./NoopTracerProvider":191,"./ProxyTracer":192,"dup":138}],194:[function(require,module,exports){
-arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],195:[function(require,module,exports){
-arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],196:[function(require,module,exports){
-arguments[4][47][0].apply(exports,arguments)
-},{"dup":47}],197:[function(require,module,exports){
-arguments[4][142][0].apply(exports,arguments)
-},{"dup":142}],198:[function(require,module,exports){
-arguments[4][48][0].apply(exports,arguments)
-},{"dup":48}],199:[function(require,module,exports){
-arguments[4][144][0].apply(exports,arguments)
-},{"dup":144}],200:[function(require,module,exports){
-arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],201:[function(require,module,exports){
-arguments[4][146][0].apply(exports,arguments)
-},{"dup":146}],202:[function(require,module,exports){
-arguments[4][52][0].apply(exports,arguments)
-},{"dup":52}],203:[function(require,module,exports){
-arguments[4][53][0].apply(exports,arguments)
-},{"dup":53}],204:[function(require,module,exports){
-arguments[4][54][0].apply(exports,arguments)
-},{"dup":54}],205:[function(require,module,exports){
-arguments[4][150][0].apply(exports,arguments)
-},{"./trace_flags":207,"dup":150}],206:[function(require,module,exports){
-arguments[4][151][0].apply(exports,arguments)
-},{"dup":151}],207:[function(require,module,exports){
-arguments[4][57][0].apply(exports,arguments)
-},{"dup":57}],208:[function(require,module,exports){
-arguments[4][58][0].apply(exports,arguments)
-},{"dup":58}],209:[function(require,module,exports){
-arguments[4][59][0].apply(exports,arguments)
-},{"dup":59}],210:[function(require,module,exports){
-arguments[4][60][0].apply(exports,arguments)
-},{"dup":60}],211:[function(require,module,exports){
+},{"./platform/index":68,"./transform":70,"./utils":72,"@opentelemetry/api":33,"@opentelemetry/core":83,"@opentelemetry/semantic-conventions":383}],74:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7019,349 +3489,14 @@ arguments[4][60][0].apply(exports,arguments)
  * limitations under the License.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AttributeNames = void 0;
-var AttributeNames;
-(function (AttributeNames) {
-    AttributeNames["COMPONENT"] = "component";
-    AttributeNames["DOCUMENT_LOAD"] = "documentLoad";
-    AttributeNames["DOCUMENT_FETCH"] = "documentFetch";
-    AttributeNames["RESOURCE_FETCH"] = "resourceFetch";
-})(AttributeNames = exports.AttributeNames || (exports.AttributeNames = {}));
+exports.ExportResultCode = void 0;
+var ExportResultCode;
+(function (ExportResultCode) {
+    ExportResultCode[ExportResultCode["SUCCESS"] = 0] = "SUCCESS";
+    ExportResultCode[ExportResultCode["FAILED"] = 1] = "FAILED";
+})(ExportResultCode = exports.ExportResultCode || (exports.ExportResultCode = {}));
 
-},{}],212:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EventNames = void 0;
-var EventNames;
-(function (EventNames) {
-    EventNames["FIRST_PAINT"] = "firstPaint";
-    EventNames["FIRST_CONTENTFUL_PAINT"] = "firstContentfulPaint";
-})(EventNames = exports.EventNames || (exports.EventNames = {}));
-
-},{}],213:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./instrumentation"), exports);
-
-},{"./instrumentation":214}],214:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DocumentLoadInstrumentation = void 0;
-const api_1 = require("@opentelemetry/api");
-const core_1 = require("@opentelemetry/core");
-const sdk_trace_web_1 = require("@opentelemetry/sdk-trace-web");
-const instrumentation_1 = require("@opentelemetry/instrumentation");
-const AttributeNames_1 = require("./enums/AttributeNames");
-const version_1 = require("./version");
-const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
-const utils_1 = require("./utils");
-/**
- * This class represents a document load plugin
- */
-class DocumentLoadInstrumentation extends instrumentation_1.InstrumentationBase {
-    /**
-     *
-     * @param config
-     */
-    constructor(config = {}) {
-        super('@opentelemetry/instrumentation-document-load', version_1.VERSION, config);
-        this.component = 'document-load';
-        this.version = '1';
-        this.moduleName = this.component;
-    }
-    init() { }
-    /**
-     * callback to be executed when page is loaded
-     */
-    _onDocumentLoaded() {
-        // Timeout is needed as load event doesn't have yet the performance metrics for loadEnd.
-        // Support for event "loadend" is very limited and cannot be used
-        window.setTimeout(() => {
-            this._collectPerformance();
-        });
-    }
-    /**
-     * Adds spans for all resources
-     * @param rootSpan
-     */
-    _addResourcesSpans(rootSpan) {
-        var _a, _b;
-        const resources = (_b = (_a = core_1.otperformance).getEntriesByType) === null || _b === void 0 ? void 0 : _b.call(_a, 'resource');
-        if (resources) {
-            resources.forEach(resource => {
-                this._initResourceSpan(resource, rootSpan);
-            });
-        }
-    }
-    /**
-     * Collects information about performance and creates appropriate spans
-     */
-    _collectPerformance() {
-        const metaElement = Array.from(document.getElementsByTagName('meta')).find(e => e.getAttribute('name') === core_1.TRACE_PARENT_HEADER);
-        const entries = utils_1.getPerformanceNavigationEntries();
-        const traceparent = (metaElement && metaElement.content) || '';
-        api_1.context.with(api_1.propagation.extract(api_1.ROOT_CONTEXT, { traceparent }), () => {
-            const rootSpan = this._startSpan(AttributeNames_1.AttributeNames.DOCUMENT_LOAD, sdk_trace_web_1.PerformanceTimingNames.FETCH_START, entries);
-            if (!rootSpan) {
-                return;
-            }
-            api_1.context.with(api_1.trace.setSpan(api_1.context.active(), rootSpan), () => {
-                const fetchSpan = this._startSpan(AttributeNames_1.AttributeNames.DOCUMENT_FETCH, sdk_trace_web_1.PerformanceTimingNames.FETCH_START, entries);
-                if (fetchSpan) {
-                    api_1.context.with(api_1.trace.setSpan(api_1.context.active(), fetchSpan), () => {
-                        sdk_trace_web_1.addSpanNetworkEvents(fetchSpan, entries);
-                        this._endSpan(fetchSpan, sdk_trace_web_1.PerformanceTimingNames.RESPONSE_END, entries);
-                    });
-                }
-            });
-            rootSpan.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_URL, location.href);
-            rootSpan.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_USER_AGENT, navigator.userAgent);
-            this._addResourcesSpans(rootSpan);
-            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.FETCH_START, entries);
-            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.UNLOAD_EVENT_START, entries);
-            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.UNLOAD_EVENT_END, entries);
-            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.DOM_INTERACTIVE, entries);
-            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.DOM_CONTENT_LOADED_EVENT_START, entries);
-            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.DOM_CONTENT_LOADED_EVENT_END, entries);
-            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.DOM_COMPLETE, entries);
-            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.LOAD_EVENT_START, entries);
-            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.LOAD_EVENT_END, entries);
-            utils_1.addSpanPerformancePaintEvents(rootSpan);
-            this._endSpan(rootSpan, sdk_trace_web_1.PerformanceTimingNames.LOAD_EVENT_END, entries);
-        });
-    }
-    /**
-     * Helper function for ending span
-     * @param span
-     * @param performanceName name of performance entry for time end
-     * @param entries
-     */
-    _endSpan(span, performanceName, entries) {
-        // span can be undefined when entries are missing the certain performance - the span will not be created
-        if (span) {
-            if (sdk_trace_web_1.hasKey(entries, performanceName)) {
-                span.end(entries[performanceName]);
-            }
-            else {
-                // just end span
-                span.end();
-            }
-        }
-    }
-    /**
-     * Creates and ends a span with network information about resource added as timed events
-     * @param resource
-     * @param parentSpan
-     */
-    _initResourceSpan(resource, parentSpan) {
-        const span = this._startSpan(AttributeNames_1.AttributeNames.RESOURCE_FETCH, sdk_trace_web_1.PerformanceTimingNames.FETCH_START, resource, parentSpan);
-        if (span) {
-            span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_URL, resource.name);
-            sdk_trace_web_1.addSpanNetworkEvents(span, resource);
-            this._endSpan(span, sdk_trace_web_1.PerformanceTimingNames.RESPONSE_END, resource);
-        }
-    }
-    /**
-     * Helper function for starting a span
-     * @param spanName name of span
-     * @param performanceName name of performance entry for time start
-     * @param entries
-     * @param parentSpan
-     */
-    _startSpan(spanName, performanceName, entries, parentSpan) {
-        if (sdk_trace_web_1.hasKey(entries, performanceName) &&
-            typeof entries[performanceName] === 'number') {
-            const span = this.tracer.startSpan(spanName, {
-                startTime: entries[performanceName],
-            }, parentSpan ? api_1.trace.setSpan(api_1.context.active(), parentSpan) : undefined);
-            span.setAttribute(AttributeNames_1.AttributeNames.COMPONENT, this.component);
-            return span;
-        }
-        return undefined;
-    }
-    /**
-     * executes callback {_onDocumentLoaded} when the page is loaded
-     */
-    _waitForPageLoad() {
-        if (window.document.readyState === 'complete') {
-            this._onDocumentLoaded();
-        }
-        else {
-            this._onDocumentLoaded = this._onDocumentLoaded.bind(this);
-            window.addEventListener('load', this._onDocumentLoaded);
-        }
-    }
-    /**
-     * implements enable function
-     */
-    enable() {
-        // remove previously attached load to avoid adding the same event twice
-        // in case of multiple enable calling.
-        window.removeEventListener('load', this._onDocumentLoaded);
-        this._waitForPageLoad();
-    }
-    /**
-     * implements disable function
-     */
-    disable() {
-        window.removeEventListener('load', this._onDocumentLoaded);
-    }
-}
-exports.DocumentLoadInstrumentation = DocumentLoadInstrumentation;
-
-},{"./enums/AttributeNames":211,"./utils":215,"./version":216,"@opentelemetry/api":33,"@opentelemetry/core":226,"@opentelemetry/instrumentation":351,"@opentelemetry/sdk-trace-web":436,"@opentelemetry/semantic-conventions":253}],215:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.addSpanPerformancePaintEvents = exports.getPerformanceNavigationEntries = void 0;
-const core_1 = require("@opentelemetry/core");
-const sdk_trace_web_1 = require("@opentelemetry/sdk-trace-web");
-const EventNames_1 = require("./enums/EventNames");
-const getPerformanceNavigationEntries = () => {
-    var _a, _b;
-    const entries = {};
-    const performanceNavigationTiming = (_b = (_a = core_1.otperformance).getEntriesByType) === null || _b === void 0 ? void 0 : _b.call(_a, 'navigation')[0];
-    if (performanceNavigationTiming) {
-        const keys = Object.values(sdk_trace_web_1.PerformanceTimingNames);
-        keys.forEach((key) => {
-            if (sdk_trace_web_1.hasKey(performanceNavigationTiming, key)) {
-                const value = performanceNavigationTiming[key];
-                if (typeof value === 'number') {
-                    entries[key] = value;
-                }
-            }
-        });
-    }
-    else {
-        // // fallback to previous version
-        const perf = core_1.otperformance;
-        const performanceTiming = perf.timing;
-        if (performanceTiming) {
-            const keys = Object.values(sdk_trace_web_1.PerformanceTimingNames);
-            keys.forEach((key) => {
-                if (sdk_trace_web_1.hasKey(performanceTiming, key)) {
-                    const value = performanceTiming[key];
-                    if (typeof value === 'number') {
-                        entries[key] = value;
-                    }
-                }
-            });
-        }
-    }
-    return entries;
-};
-exports.getPerformanceNavigationEntries = getPerformanceNavigationEntries;
-const performancePaintNames = {
-    'first-paint': EventNames_1.EventNames.FIRST_PAINT,
-    'first-contentful-paint': EventNames_1.EventNames.FIRST_CONTENTFUL_PAINT,
-};
-const addSpanPerformancePaintEvents = (span) => {
-    var _a, _b;
-    const performancePaintTiming = (_b = (_a = core_1.otperformance).getEntriesByType) === null || _b === void 0 ? void 0 : _b.call(_a, 'paint');
-    if (performancePaintTiming) {
-        performancePaintTiming.forEach(({ name, startTime }) => {
-            if (sdk_trace_web_1.hasKey(performancePaintNames, name)) {
-                span.addEvent(performancePaintNames[name], startTime);
-            }
-        });
-    }
-};
-exports.addSpanPerformancePaintEvents = addSpanPerformancePaintEvents;
-
-},{"./enums/EventNames":212,"@opentelemetry/core":226,"@opentelemetry/sdk-trace-web":436}],216:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.VERSION = void 0;
-// this is autogenerated file, see scripts/version-update.js
-exports.VERSION = '0.27.1';
-
-},{}],217:[function(require,module,exports){
-arguments[4][71][0].apply(exports,arguments)
-},{"dup":71}],218:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7392,7 +3527,7 @@ exports.BAGGAGE_MAX_PER_NAME_VALUE_PAIRS = 4096;
 // Maximum total length of all name-value pairs allowed by w3c spec
 exports.BAGGAGE_MAX_TOTAL_LENGTH = 8192;
 
-},{}],219:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7466,7 +3601,7 @@ class W3CBaggagePropagator {
 }
 exports.W3CBaggagePropagator = W3CBaggagePropagator;
 
-},{"../../trace/suppress-tracing":245,"../constants":218,"../utils":220,"@opentelemetry/api":33}],220:[function(require,module,exports){
+},{"../../trace/suppress-tracing":102,"../constants":75,"../utils":77,"@opentelemetry/api":33}],77:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseKeyPairsIntoRecord = exports.parsePairKeyValue = exports.getKeyPairs = exports.serializeKeyPairs = void 0;
@@ -7540,7 +3675,7 @@ function parseKeyPairsIntoRecord(value) {
 }
 exports.parseKeyPairsIntoRecord = parseKeyPairsIntoRecord;
 
-},{"./constants":218,"@opentelemetry/api":33}],221:[function(require,module,exports){
+},{"./constants":75,"@opentelemetry/api":33}],78:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isAttributeValue = exports.sanitizeAttributes = void 0;
@@ -7606,7 +3741,7 @@ function isValidPrimitiveAttributeValue(val) {
     return false;
 }
 
-},{}],222:[function(require,module,exports){
+},{}],79:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7648,7 +3783,7 @@ function globalErrorHandler(ex) {
 }
 exports.globalErrorHandler = globalErrorHandler;
 
-},{"./logging-error-handler":223}],223:[function(require,module,exports){
+},{"./logging-error-handler":80}],80:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7712,7 +3847,7 @@ function flattenException(ex) {
     return result;
 }
 
-},{"@opentelemetry/api":33}],224:[function(require,module,exports){
+},{"@opentelemetry/api":33}],81:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7883,9 +4018,9 @@ function isTimeInput(value) {
 }
 exports.isTimeInput = isTimeInput;
 
-},{"../platform":232}],225:[function(require,module,exports){
+},{"../platform":89}],82:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],226:[function(require,module,exports){
+},{"dup":21}],83:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7941,11 +4076,89 @@ __exportStar(require("./utils/url"), exports);
 __exportStar(require("./utils/wrap"), exports);
 __exportStar(require("./version"), exports);
 
-},{"./ExportResult":217,"./baggage/propagation/W3CBaggagePropagator":219,"./baggage/utils":220,"./common/attributes":221,"./common/global-error-handler":222,"./common/logging-error-handler":223,"./common/time":224,"./common/types":225,"./platform":232,"./propagation/composite":236,"./trace/IdGenerator":237,"./trace/TraceState":238,"./trace/W3CTraceContextPropagator":239,"./trace/rpc-metadata":240,"./trace/sampler/AlwaysOffSampler":241,"./trace/sampler/AlwaysOnSampler":242,"./trace/sampler/ParentBasedSampler":243,"./trace/sampler/TraceIdRatioBasedSampler":244,"./trace/suppress-tracing":245,"./utils/environment":246,"./utils/merge":248,"./utils/sampling":249,"./utils/url":250,"./utils/wrap":251,"./version":252}],227:[function(require,module,exports){
-arguments[4][85][0].apply(exports,arguments)
-},{"dup":85}],228:[function(require,module,exports){
-arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],229:[function(require,module,exports){
+},{"./ExportResult":74,"./baggage/propagation/W3CBaggagePropagator":76,"./baggage/utils":77,"./common/attributes":78,"./common/global-error-handler":79,"./common/logging-error-handler":80,"./common/time":81,"./common/types":82,"./platform":89,"./propagation/composite":93,"./trace/IdGenerator":94,"./trace/TraceState":95,"./trace/W3CTraceContextPropagator":96,"./trace/rpc-metadata":97,"./trace/sampler/AlwaysOffSampler":98,"./trace/sampler/AlwaysOnSampler":99,"./trace/sampler/ParentBasedSampler":100,"./trace/sampler/TraceIdRatioBasedSampler":101,"./trace/suppress-tracing":102,"./utils/environment":103,"./utils/merge":105,"./utils/sampling":106,"./utils/url":107,"./utils/wrap":108,"./version":109}],84:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.validateValue = exports.validateKey = void 0;
+const VALID_KEY_CHAR_RANGE = '[_0-9a-z-*/]';
+const VALID_KEY = `[a-z]${VALID_KEY_CHAR_RANGE}{0,255}`;
+const VALID_VENDOR_KEY = `[a-z0-9]${VALID_KEY_CHAR_RANGE}{0,240}@[a-z]${VALID_KEY_CHAR_RANGE}{0,13}`;
+const VALID_KEY_REGEX = new RegExp(`^(?:${VALID_KEY}|${VALID_VENDOR_KEY})$`);
+const VALID_VALUE_BASE_REGEX = /^[ -~]{0,255}[!-~]$/;
+const INVALID_VALUE_COMMA_EQUAL_REGEX = /,|=/;
+/**
+ * Key is opaque string up to 256 characters printable. It MUST begin with a
+ * lowercase letter, and can only contain lowercase letters a-z, digits 0-9,
+ * underscores _, dashes -, asterisks *, and forward slashes /.
+ * For multi-tenant vendor scenarios, an at sign (@) can be used to prefix the
+ * vendor name. Vendors SHOULD set the tenant ID at the beginning of the key.
+ * see https://www.w3.org/TR/trace-context/#key
+ */
+function validateKey(key) {
+    return VALID_KEY_REGEX.test(key);
+}
+exports.validateKey = validateKey;
+/**
+ * Value is opaque string up to 256 characters printable ASCII RFC0020
+ * characters (i.e., the range 0x20 to 0x7E) except comma , and =.
+ */
+function validateValue(value) {
+    return (VALID_VALUE_BASE_REGEX.test(value) &&
+        !INVALID_VALUE_COMMA_EQUAL_REGEX.test(value));
+}
+exports.validateValue = validateValue;
+
+},{}],85:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RandomIdGenerator = void 0;
+const SPAN_ID_BYTES = 8;
+const TRACE_ID_BYTES = 16;
+class RandomIdGenerator {
+    constructor() {
+        /**
+         * Returns a random 16-byte trace ID formatted/encoded as a 32 lowercase hex
+         * characters corresponding to 128 bits.
+         */
+        this.generateTraceId = getIdGenerator(TRACE_ID_BYTES);
+        /**
+         * Returns a random 8-byte span ID formatted/encoded as a 16 lowercase hex
+         * characters corresponding to 64 bits.
+         */
+        this.generateSpanId = getIdGenerator(SPAN_ID_BYTES);
+    }
+}
+exports.RandomIdGenerator = RandomIdGenerator;
+const SHARED_CHAR_CODES_ARRAY = Array(32);
+function getIdGenerator(bytes) {
+    return function generateId() {
+        for (let i = 0; i < bytes * 2; i++) {
+            SHARED_CHAR_CODES_ARRAY[i] = Math.floor(Math.random() * 16) + 48;
+            // valid hex characters in the range 48-57 and 97-102
+            if (SHARED_CHAR_CODES_ARRAY[i] >= 58) {
+                SHARED_CHAR_CODES_ARRAY[i] += 39;
+            }
+        }
+        return String.fromCharCode.apply(null, SHARED_CHAR_CODES_ARRAY.slice(0, bytes * 2));
+    };
+}
+
+},{}],86:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7975,7 +4188,7 @@ function getEnv() {
 }
 exports.getEnv = getEnv;
 
-},{"../../utils/environment":246,"./globalThis":230}],230:[function(require,module,exports){
+},{"../../utils/environment":103,"./globalThis":87}],87:[function(require,module,exports){
 (function (global){(function (){
 "use strict";
 /*
@@ -8013,9 +4226,38 @@ exports._globalThis = typeof globalThis === 'object' ? globalThis :
                 {};
 
 }).call(this)}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],231:[function(require,module,exports){
-arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],232:[function(require,module,exports){
+},{}],88:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.hexToBase64 = void 0;
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+function hexToBase64(hexStr) {
+    const hexStrLen = hexStr.length;
+    let hexAsciiCharsStr = '';
+    for (let i = 0; i < hexStrLen; i += 2) {
+        const hexPair = hexStr.substring(i, i + 2);
+        const hexVal = parseInt(hexPair, 16);
+        hexAsciiCharsStr += String.fromCharCode(hexVal);
+    }
+    return btoa(hexAsciiCharsStr);
+}
+exports.hexToBase64 = hexToBase64;
+
+},{}],89:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8051,9 +4293,28 @@ __exportStar(require("./performance"), exports);
 __exportStar(require("./sdk-info"), exports);
 __exportStar(require("./timer-util"), exports);
 
-},{"./RandomIdGenerator":228,"./environment":229,"./globalThis":230,"./hex-to-base64":231,"./performance":233,"./sdk-info":234,"./timer-util":235}],233:[function(require,module,exports){
-arguments[4][92][0].apply(exports,arguments)
-},{"dup":92}],234:[function(require,module,exports){
+},{"./RandomIdGenerator":85,"./environment":86,"./globalThis":87,"./hex-to-base64":88,"./performance":90,"./sdk-info":91,"./timer-util":92}],90:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.otperformance = void 0;
+exports.otperformance = performance;
+
+},{}],91:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8082,9 +4343,29 @@ exports.SDK_INFO = {
     [semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_VERSION]: version_1.VERSION,
 };
 
-},{"../../version":252,"@opentelemetry/semantic-conventions":253}],235:[function(require,module,exports){
-arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],236:[function(require,module,exports){
+},{"../../version":109,"@opentelemetry/semantic-conventions":383}],92:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.unrefTimer = void 0;
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+function unrefTimer(_timer) { }
+exports.unrefTimer = unrefTimer;
+
+},{}],93:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8165,11 +4446,130 @@ class CompositePropagator {
 }
 exports.CompositePropagator = CompositePropagator;
 
-},{"@opentelemetry/api":33}],237:[function(require,module,exports){
-arguments[4][95][0].apply(exports,arguments)
-},{"dup":95}],238:[function(require,module,exports){
-arguments[4][97][0].apply(exports,arguments)
-},{"../internal/validators":227,"dup":97}],239:[function(require,module,exports){
+},{"@opentelemetry/api":33}],94:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+
+},{}],95:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TraceState = void 0;
+const validators_1 = require("../internal/validators");
+const MAX_TRACE_STATE_ITEMS = 32;
+const MAX_TRACE_STATE_LEN = 512;
+const LIST_MEMBERS_SEPARATOR = ',';
+const LIST_MEMBER_KEY_VALUE_SPLITTER = '=';
+/**
+ * TraceState must be a class and not a simple object type because of the spec
+ * requirement (https://www.w3.org/TR/trace-context/#tracestate-field).
+ *
+ * Here is the list of allowed mutations:
+ * - New key-value pair should be added into the beginning of the list
+ * - The value of any key can be updated. Modified keys MUST be moved to the
+ * beginning of the list.
+ */
+class TraceState {
+    constructor(rawTraceState) {
+        this._internalState = new Map();
+        if (rawTraceState)
+            this._parse(rawTraceState);
+    }
+    set(key, value) {
+        // TODO: Benchmark the different approaches(map vs list) and
+        // use the faster one.
+        const traceState = this._clone();
+        if (traceState._internalState.has(key)) {
+            traceState._internalState.delete(key);
+        }
+        traceState._internalState.set(key, value);
+        return traceState;
+    }
+    unset(key) {
+        const traceState = this._clone();
+        traceState._internalState.delete(key);
+        return traceState;
+    }
+    get(key) {
+        return this._internalState.get(key);
+    }
+    serialize() {
+        return this._keys()
+            .reduce((agg, key) => {
+            agg.push(key + LIST_MEMBER_KEY_VALUE_SPLITTER + this.get(key));
+            return agg;
+        }, [])
+            .join(LIST_MEMBERS_SEPARATOR);
+    }
+    _parse(rawTraceState) {
+        if (rawTraceState.length > MAX_TRACE_STATE_LEN)
+            return;
+        this._internalState = rawTraceState
+            .split(LIST_MEMBERS_SEPARATOR)
+            .reverse() // Store in reverse so new keys (.set(...)) will be placed at the beginning
+            .reduce((agg, part) => {
+            const listMember = part.trim(); // Optional Whitespace (OWS) handling
+            const i = listMember.indexOf(LIST_MEMBER_KEY_VALUE_SPLITTER);
+            if (i !== -1) {
+                const key = listMember.slice(0, i);
+                const value = listMember.slice(i + 1, part.length);
+                if (validators_1.validateKey(key) && validators_1.validateValue(value)) {
+                    agg.set(key, value);
+                }
+                else {
+                    // TODO: Consider to add warning log
+                }
+            }
+            return agg;
+        }, new Map());
+        // Because of the reverse() requirement, trunc must be done after map is created
+        if (this._internalState.size > MAX_TRACE_STATE_ITEMS) {
+            this._internalState = new Map(Array.from(this._internalState.entries())
+                .reverse() // Use reverse same as original tracestate parse chain
+                .slice(0, MAX_TRACE_STATE_ITEMS));
+        }
+    }
+    _keys() {
+        return Array.from(this._internalState.keys()).reverse();
+    }
+    _clone() {
+        const traceState = new TraceState();
+        traceState._internalState = new Map(this._internalState);
+        return traceState;
+    }
+}
+exports.TraceState = TraceState;
+
+},{"../internal/validators":84}],96:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8274,7 +4674,7 @@ class W3CTraceContextPropagator {
 }
 exports.W3CTraceContextPropagator = W3CTraceContextPropagator;
 
-},{"./TraceState":238,"./suppress-tracing":245,"@opentelemetry/api":33}],240:[function(require,module,exports){
+},{"./TraceState":95,"./suppress-tracing":102,"@opentelemetry/api":33}],97:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8312,11 +4712,73 @@ function getRPCMetadata(context) {
 }
 exports.getRPCMetadata = getRPCMetadata;
 
-},{"@opentelemetry/api":33}],241:[function(require,module,exports){
-arguments[4][98][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":98}],242:[function(require,module,exports){
-arguments[4][99][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":99}],243:[function(require,module,exports){
+},{"@opentelemetry/api":33}],98:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AlwaysOffSampler = void 0;
+const api_1 = require("@opentelemetry/api");
+/** Sampler that samples no traces. */
+class AlwaysOffSampler {
+    shouldSample() {
+        return {
+            decision: api_1.SamplingDecision.NOT_RECORD,
+        };
+    }
+    toString() {
+        return 'AlwaysOffSampler';
+    }
+}
+exports.AlwaysOffSampler = AlwaysOffSampler;
+
+},{"@opentelemetry/api":33}],99:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AlwaysOnSampler = void 0;
+const api_1 = require("@opentelemetry/api");
+/** Sampler that samples all traces. */
+class AlwaysOnSampler {
+    shouldSample() {
+        return {
+            decision: api_1.SamplingDecision.RECORD_AND_SAMPLED,
+        };
+    }
+    toString() {
+        return 'AlwaysOnSampler';
+    }
+}
+exports.AlwaysOnSampler = AlwaysOnSampler;
+
+},{"@opentelemetry/api":33}],100:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8382,7 +4844,7 @@ class ParentBasedSampler {
 }
 exports.ParentBasedSampler = ParentBasedSampler;
 
-},{"../../common/global-error-handler":222,"./AlwaysOffSampler":241,"./AlwaysOnSampler":242,"@opentelemetry/api":33}],244:[function(require,module,exports){
+},{"../../common/global-error-handler":79,"./AlwaysOffSampler":98,"./AlwaysOnSampler":99,"@opentelemetry/api":33}],101:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8436,7 +4898,7 @@ class TraceIdRatioBasedSampler {
 }
 exports.TraceIdRatioBasedSampler = TraceIdRatioBasedSampler;
 
-},{"@opentelemetry/api":33}],245:[function(require,module,exports){
+},{"@opentelemetry/api":33}],102:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8470,7 +4932,7 @@ function isTracingSuppressed(context) {
 }
 exports.isTracingSuppressed = isTracingSuppressed;
 
-},{"@opentelemetry/api":33}],246:[function(require,module,exports){
+},{"@opentelemetry/api":33}],103:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8652,7 +5114,7 @@ function parseEnvironment(values) {
 }
 exports.parseEnvironment = parseEnvironment;
 
-},{"./sampling":249,"@opentelemetry/api":33}],247:[function(require,module,exports){
+},{"./sampling":106,"@opentelemetry/api":33}],104:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8822,7 +5284,7 @@ function objectToString(value) {
     return nativeObjectToString.call(value);
 }
 
-},{}],248:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8982,7 +5444,7 @@ function shouldMerge(one, two) {
     return true;
 }
 
-},{"./lodash.merge":247}],249:[function(require,module,exports){
+},{"./lodash.merge":104}],106:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9011,11 +5473,84 @@ var TracesSamplerValues;
     TracesSamplerValues["TraceIdRatio"] = "traceidratio";
 })(TracesSamplerValues = exports.TracesSamplerValues || (exports.TracesSamplerValues = {}));
 
-},{}],250:[function(require,module,exports){
-arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],251:[function(require,module,exports){
-arguments[4][105][0].apply(exports,arguments)
-},{"dup":105}],252:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.isUrlIgnored = exports.urlMatches = void 0;
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+function urlMatches(url, urlToMatch) {
+    if (typeof urlToMatch === 'string') {
+        return url === urlToMatch;
+    }
+    else {
+        return !!url.match(urlToMatch);
+    }
+}
+exports.urlMatches = urlMatches;
+/**
+ * Check if {@param url} should be ignored when comparing against {@param ignoredUrls}
+ * @param url
+ * @param ignoredUrls
+ */
+function isUrlIgnored(url, ignoredUrls) {
+    if (!ignoredUrls) {
+        return false;
+    }
+    for (const ignoreUrl of ignoredUrls) {
+        if (urlMatches(url, ignoreUrl)) {
+            return true;
+        }
+    }
+    return false;
+}
+exports.isUrlIgnored = isUrlIgnored;
+
+},{}],108:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.isWrapped = void 0;
+/**
+ * Checks if certain function has been already wrapped
+ * @param func
+ */
+function isWrapped(func) {
+    return (typeof func === 'function' &&
+        typeof func.__original === 'function' &&
+        typeof func.__unwrap === 'function' &&
+        func.__wrapped === true);
+}
+exports.isWrapped = isWrapped;
+
+},{}],109:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9037,7 +5572,4465 @@ exports.VERSION = void 0;
 // this is autogenerated file, see scripts/version-update.js
 exports.VERSION = '1.0.1';
 
-},{}],253:[function(require,module,exports){
+},{}],110:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AttributeNames = void 0;
+var AttributeNames;
+(function (AttributeNames) {
+    AttributeNames["COMPONENT"] = "component";
+    AttributeNames["DOCUMENT_LOAD"] = "documentLoad";
+    AttributeNames["DOCUMENT_FETCH"] = "documentFetch";
+    AttributeNames["RESOURCE_FETCH"] = "resourceFetch";
+})(AttributeNames = exports.AttributeNames || (exports.AttributeNames = {}));
+
+},{}],111:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.EventNames = void 0;
+var EventNames;
+(function (EventNames) {
+    EventNames["FIRST_PAINT"] = "firstPaint";
+    EventNames["FIRST_CONTENTFUL_PAINT"] = "firstContentfulPaint";
+})(EventNames = exports.EventNames || (exports.EventNames = {}));
+
+},{}],112:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./instrumentation"), exports);
+
+},{"./instrumentation":113}],113:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DocumentLoadInstrumentation = void 0;
+const api_1 = require("@opentelemetry/api");
+const core_1 = require("@opentelemetry/core");
+const sdk_trace_web_1 = require("@opentelemetry/sdk-trace-web");
+const instrumentation_1 = require("@opentelemetry/instrumentation");
+const AttributeNames_1 = require("./enums/AttributeNames");
+const version_1 = require("./version");
+const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
+const utils_1 = require("./utils");
+/**
+ * This class represents a document load plugin
+ */
+class DocumentLoadInstrumentation extends instrumentation_1.InstrumentationBase {
+    /**
+     *
+     * @param config
+     */
+    constructor(config = {}) {
+        super('@opentelemetry/instrumentation-document-load', version_1.VERSION, config);
+        this.component = 'document-load';
+        this.version = '1';
+        this.moduleName = this.component;
+    }
+    init() { }
+    /**
+     * callback to be executed when page is loaded
+     */
+    _onDocumentLoaded() {
+        // Timeout is needed as load event doesn't have yet the performance metrics for loadEnd.
+        // Support for event "loadend" is very limited and cannot be used
+        window.setTimeout(() => {
+            this._collectPerformance();
+        });
+    }
+    /**
+     * Adds spans for all resources
+     * @param rootSpan
+     */
+    _addResourcesSpans(rootSpan) {
+        var _a, _b;
+        const resources = (_b = (_a = core_1.otperformance).getEntriesByType) === null || _b === void 0 ? void 0 : _b.call(_a, 'resource');
+        if (resources) {
+            resources.forEach(resource => {
+                this._initResourceSpan(resource, rootSpan);
+            });
+        }
+    }
+    /**
+     * Collects information about performance and creates appropriate spans
+     */
+    _collectPerformance() {
+        const metaElement = Array.from(document.getElementsByTagName('meta')).find(e => e.getAttribute('name') === core_1.TRACE_PARENT_HEADER);
+        const entries = utils_1.getPerformanceNavigationEntries();
+        const traceparent = (metaElement && metaElement.content) || '';
+        api_1.context.with(api_1.propagation.extract(api_1.ROOT_CONTEXT, { traceparent }), () => {
+            const rootSpan = this._startSpan(AttributeNames_1.AttributeNames.DOCUMENT_LOAD, sdk_trace_web_1.PerformanceTimingNames.FETCH_START, entries);
+            if (!rootSpan) {
+                return;
+            }
+            api_1.context.with(api_1.trace.setSpan(api_1.context.active(), rootSpan), () => {
+                const fetchSpan = this._startSpan(AttributeNames_1.AttributeNames.DOCUMENT_FETCH, sdk_trace_web_1.PerformanceTimingNames.FETCH_START, entries);
+                if (fetchSpan) {
+                    api_1.context.with(api_1.trace.setSpan(api_1.context.active(), fetchSpan), () => {
+                        sdk_trace_web_1.addSpanNetworkEvents(fetchSpan, entries);
+                        this._endSpan(fetchSpan, sdk_trace_web_1.PerformanceTimingNames.RESPONSE_END, entries);
+                    });
+                }
+            });
+            rootSpan.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_URL, location.href);
+            rootSpan.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_USER_AGENT, navigator.userAgent);
+            this._addResourcesSpans(rootSpan);
+            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.FETCH_START, entries);
+            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.UNLOAD_EVENT_START, entries);
+            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.UNLOAD_EVENT_END, entries);
+            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.DOM_INTERACTIVE, entries);
+            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.DOM_CONTENT_LOADED_EVENT_START, entries);
+            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.DOM_CONTENT_LOADED_EVENT_END, entries);
+            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.DOM_COMPLETE, entries);
+            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.LOAD_EVENT_START, entries);
+            sdk_trace_web_1.addSpanNetworkEvent(rootSpan, sdk_trace_web_1.PerformanceTimingNames.LOAD_EVENT_END, entries);
+            utils_1.addSpanPerformancePaintEvents(rootSpan);
+            this._endSpan(rootSpan, sdk_trace_web_1.PerformanceTimingNames.LOAD_EVENT_END, entries);
+        });
+    }
+    /**
+     * Helper function for ending span
+     * @param span
+     * @param performanceName name of performance entry for time end
+     * @param entries
+     */
+    _endSpan(span, performanceName, entries) {
+        // span can be undefined when entries are missing the certain performance - the span will not be created
+        if (span) {
+            if (sdk_trace_web_1.hasKey(entries, performanceName)) {
+                span.end(entries[performanceName]);
+            }
+            else {
+                // just end span
+                span.end();
+            }
+        }
+    }
+    /**
+     * Creates and ends a span with network information about resource added as timed events
+     * @param resource
+     * @param parentSpan
+     */
+    _initResourceSpan(resource, parentSpan) {
+        const span = this._startSpan(AttributeNames_1.AttributeNames.RESOURCE_FETCH, sdk_trace_web_1.PerformanceTimingNames.FETCH_START, resource, parentSpan);
+        if (span) {
+            span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_URL, resource.name);
+            sdk_trace_web_1.addSpanNetworkEvents(span, resource);
+            this._endSpan(span, sdk_trace_web_1.PerformanceTimingNames.RESPONSE_END, resource);
+        }
+    }
+    /**
+     * Helper function for starting a span
+     * @param spanName name of span
+     * @param performanceName name of performance entry for time start
+     * @param entries
+     * @param parentSpan
+     */
+    _startSpan(spanName, performanceName, entries, parentSpan) {
+        if (sdk_trace_web_1.hasKey(entries, performanceName) &&
+            typeof entries[performanceName] === 'number') {
+            const span = this.tracer.startSpan(spanName, {
+                startTime: entries[performanceName],
+            }, parentSpan ? api_1.trace.setSpan(api_1.context.active(), parentSpan) : undefined);
+            span.setAttribute(AttributeNames_1.AttributeNames.COMPONENT, this.component);
+            return span;
+        }
+        return undefined;
+    }
+    /**
+     * executes callback {_onDocumentLoaded} when the page is loaded
+     */
+    _waitForPageLoad() {
+        if (window.document.readyState === 'complete') {
+            this._onDocumentLoaded();
+        }
+        else {
+            this._onDocumentLoaded = this._onDocumentLoaded.bind(this);
+            window.addEventListener('load', this._onDocumentLoaded);
+        }
+    }
+    /**
+     * implements enable function
+     */
+    enable() {
+        // remove previously attached load to avoid adding the same event twice
+        // in case of multiple enable calling.
+        window.removeEventListener('load', this._onDocumentLoaded);
+        this._waitForPageLoad();
+    }
+    /**
+     * implements disable function
+     */
+    disable() {
+        window.removeEventListener('load', this._onDocumentLoaded);
+    }
+}
+exports.DocumentLoadInstrumentation = DocumentLoadInstrumentation;
+
+},{"./enums/AttributeNames":110,"./utils":114,"./version":115,"@opentelemetry/api":33,"@opentelemetry/core":125,"@opentelemetry/instrumentation":235,"@opentelemetry/sdk-trace-web":344,"@opentelemetry/semantic-conventions":383}],114:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.addSpanPerformancePaintEvents = exports.getPerformanceNavigationEntries = void 0;
+const core_1 = require("@opentelemetry/core");
+const sdk_trace_web_1 = require("@opentelemetry/sdk-trace-web");
+const EventNames_1 = require("./enums/EventNames");
+const getPerformanceNavigationEntries = () => {
+    var _a, _b;
+    const entries = {};
+    const performanceNavigationTiming = (_b = (_a = core_1.otperformance).getEntriesByType) === null || _b === void 0 ? void 0 : _b.call(_a, 'navigation')[0];
+    if (performanceNavigationTiming) {
+        const keys = Object.values(sdk_trace_web_1.PerformanceTimingNames);
+        keys.forEach((key) => {
+            if (sdk_trace_web_1.hasKey(performanceNavigationTiming, key)) {
+                const value = performanceNavigationTiming[key];
+                if (typeof value === 'number') {
+                    entries[key] = value;
+                }
+            }
+        });
+    }
+    else {
+        // // fallback to previous version
+        const perf = core_1.otperformance;
+        const performanceTiming = perf.timing;
+        if (performanceTiming) {
+            const keys = Object.values(sdk_trace_web_1.PerformanceTimingNames);
+            keys.forEach((key) => {
+                if (sdk_trace_web_1.hasKey(performanceTiming, key)) {
+                    const value = performanceTiming[key];
+                    if (typeof value === 'number') {
+                        entries[key] = value;
+                    }
+                }
+            });
+        }
+    }
+    return entries;
+};
+exports.getPerformanceNavigationEntries = getPerformanceNavigationEntries;
+const performancePaintNames = {
+    'first-paint': EventNames_1.EventNames.FIRST_PAINT,
+    'first-contentful-paint': EventNames_1.EventNames.FIRST_CONTENTFUL_PAINT,
+};
+const addSpanPerformancePaintEvents = (span) => {
+    var _a, _b;
+    const performancePaintTiming = (_b = (_a = core_1.otperformance).getEntriesByType) === null || _b === void 0 ? void 0 : _b.call(_a, 'paint');
+    if (performancePaintTiming) {
+        performancePaintTiming.forEach(({ name, startTime }) => {
+            if (sdk_trace_web_1.hasKey(performancePaintNames, name)) {
+                span.addEvent(performancePaintNames[name], startTime);
+            }
+        });
+    }
+};
+exports.addSpanPerformancePaintEvents = addSpanPerformancePaintEvents;
+
+},{"./enums/EventNames":111,"@opentelemetry/core":125,"@opentelemetry/sdk-trace-web":344}],115:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.VERSION = void 0;
+// this is autogenerated file, see scripts/version-update.js
+exports.VERSION = '0.27.1';
+
+},{}],116:[function(require,module,exports){
+arguments[4][74][0].apply(exports,arguments)
+},{"dup":74}],117:[function(require,module,exports){
+arguments[4][75][0].apply(exports,arguments)
+},{"dup":75}],118:[function(require,module,exports){
+arguments[4][76][0].apply(exports,arguments)
+},{"../../trace/suppress-tracing":144,"../constants":117,"../utils":119,"@opentelemetry/api":33,"dup":76}],119:[function(require,module,exports){
+arguments[4][77][0].apply(exports,arguments)
+},{"./constants":117,"@opentelemetry/api":33,"dup":77}],120:[function(require,module,exports){
+arguments[4][78][0].apply(exports,arguments)
+},{"dup":78}],121:[function(require,module,exports){
+arguments[4][79][0].apply(exports,arguments)
+},{"./logging-error-handler":122,"dup":79}],122:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":80}],123:[function(require,module,exports){
+arguments[4][81][0].apply(exports,arguments)
+},{"../platform":131,"dup":81}],124:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],125:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"./ExportResult":116,"./baggage/propagation/W3CBaggagePropagator":118,"./baggage/utils":119,"./common/attributes":120,"./common/global-error-handler":121,"./common/logging-error-handler":122,"./common/time":123,"./common/types":124,"./platform":131,"./propagation/composite":135,"./trace/IdGenerator":136,"./trace/TraceState":137,"./trace/W3CTraceContextPropagator":138,"./trace/rpc-metadata":139,"./trace/sampler/AlwaysOffSampler":140,"./trace/sampler/AlwaysOnSampler":141,"./trace/sampler/ParentBasedSampler":142,"./trace/sampler/TraceIdRatioBasedSampler":143,"./trace/suppress-tracing":144,"./utils/environment":145,"./utils/merge":147,"./utils/sampling":148,"./utils/url":149,"./utils/wrap":150,"./version":151,"dup":83}],126:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],127:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85}],128:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"../../utils/environment":145,"./globalThis":129,"dup":86}],129:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],130:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88}],131:[function(require,module,exports){
+arguments[4][89][0].apply(exports,arguments)
+},{"./RandomIdGenerator":127,"./environment":128,"./globalThis":129,"./hex-to-base64":130,"./performance":132,"./sdk-info":133,"./timer-util":134,"dup":89}],132:[function(require,module,exports){
+arguments[4][90][0].apply(exports,arguments)
+},{"dup":90}],133:[function(require,module,exports){
+arguments[4][91][0].apply(exports,arguments)
+},{"../../version":151,"@opentelemetry/semantic-conventions":383,"dup":91}],134:[function(require,module,exports){
+arguments[4][92][0].apply(exports,arguments)
+},{"dup":92}],135:[function(require,module,exports){
+arguments[4][93][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":93}],136:[function(require,module,exports){
+arguments[4][94][0].apply(exports,arguments)
+},{"dup":94}],137:[function(require,module,exports){
+arguments[4][95][0].apply(exports,arguments)
+},{"../internal/validators":126,"dup":95}],138:[function(require,module,exports){
+arguments[4][96][0].apply(exports,arguments)
+},{"./TraceState":137,"./suppress-tracing":144,"@opentelemetry/api":33,"dup":96}],139:[function(require,module,exports){
+arguments[4][97][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":97}],140:[function(require,module,exports){
+arguments[4][98][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":98}],141:[function(require,module,exports){
+arguments[4][99][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":99}],142:[function(require,module,exports){
+arguments[4][100][0].apply(exports,arguments)
+},{"../../common/global-error-handler":121,"./AlwaysOffSampler":140,"./AlwaysOnSampler":141,"@opentelemetry/api":33,"dup":100}],143:[function(require,module,exports){
+arguments[4][101][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":101}],144:[function(require,module,exports){
+arguments[4][102][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":102}],145:[function(require,module,exports){
+arguments[4][103][0].apply(exports,arguments)
+},{"./sampling":148,"@opentelemetry/api":33,"dup":103}],146:[function(require,module,exports){
+arguments[4][104][0].apply(exports,arguments)
+},{"dup":104}],147:[function(require,module,exports){
+arguments[4][105][0].apply(exports,arguments)
+},{"./lodash.merge":146,"dup":105}],148:[function(require,module,exports){
+arguments[4][106][0].apply(exports,arguments)
+},{"dup":106}],149:[function(require,module,exports){
+arguments[4][107][0].apply(exports,arguments)
+},{"dup":107}],150:[function(require,module,exports){
+arguments[4][108][0].apply(exports,arguments)
+},{"dup":108}],151:[function(require,module,exports){
+arguments[4][109][0].apply(exports,arguments)
+},{"dup":109}],152:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AttributeNames = void 0;
+var AttributeNames;
+(function (AttributeNames) {
+    AttributeNames["COMPONENT"] = "component";
+    AttributeNames["EVENT_TYPE"] = "event_type";
+    AttributeNames["TARGET_ELEMENT"] = "target_element";
+    AttributeNames["TARGET_XPATH"] = "target_xpath";
+    AttributeNames["HTTP_URL"] = "http.url";
+    // NOT ON OFFICIAL SPEC
+    AttributeNames["HTTP_USER_AGENT"] = "http.user_agent";
+})(AttributeNames = exports.AttributeNames || (exports.AttributeNames = {}));
+
+},{}],153:[function(require,module,exports){
+arguments[4][112][0].apply(exports,arguments)
+},{"./instrumentation":154,"dup":112}],154:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.UserInteractionInstrumentation = void 0;
+const instrumentation_1 = require("@opentelemetry/instrumentation");
+const api = require("@opentelemetry/api");
+const core_1 = require("@opentelemetry/core");
+const sdk_trace_web_1 = require("@opentelemetry/sdk-trace-web");
+const AttributeNames_1 = require("./enums/AttributeNames");
+const version_1 = require("./version");
+const ZONE_CONTEXT_KEY = 'OT_ZONE_CONTEXT';
+const EVENT_NAVIGATION_NAME = 'Navigation:';
+const DEFAULT_EVENT_NAMES = ['click'];
+function defaultShouldPreventSpanCreation() {
+    return false;
+}
+/**
+ * This class represents a UserInteraction plugin for auto instrumentation.
+ * If zone.js is available then it patches the zone otherwise it patches
+ * addEventListener of HTMLElement
+ */
+class UserInteractionInstrumentation extends instrumentation_1.InstrumentationBase {
+    constructor(config) {
+        var _a;
+        super('@opentelemetry/instrumentation-user-interaction', version_1.VERSION, config);
+        this.component = 'user-interaction';
+        this.version = version_1.VERSION;
+        this.moduleName = this.component;
+        this._spansData = new WeakMap();
+        // for addEventListener/removeEventListener state
+        this._wrappedListeners = new WeakMap();
+        // for event bubbling
+        this._eventsSpanMap = new WeakMap();
+        this._eventNames = new Set((_a = config === null || config === void 0 ? void 0 : config.eventNames) !== null && _a !== void 0 ? _a : DEFAULT_EVENT_NAMES);
+        this._shouldPreventSpanCreation =
+            typeof (config === null || config === void 0 ? void 0 : config.shouldPreventSpanCreation) === 'function'
+                ? config.shouldPreventSpanCreation
+                : defaultShouldPreventSpanCreation;
+    }
+    init() { }
+    /**
+     * This will check if last task was timeout and will save the time to
+     * fix the user interaction when nothing happens
+     * This timeout comes from xhr plugin which is needed to collect information
+     * about last xhr main request from observer
+     * @param task
+     * @param span
+     */
+    _checkForTimeout(task, span) {
+        const spanData = this._spansData.get(span);
+        if (spanData) {
+            if (task.source === 'setTimeout') {
+                spanData.hrTimeLastTimeout = core_1.hrTime();
+            }
+            else if (task.source !== 'Promise.then' &&
+                task.source !== 'setTimeout') {
+                spanData.hrTimeLastTimeout = undefined;
+            }
+        }
+    }
+    /**
+     * Controls whether or not to create a span, based on the event type.
+     */
+    _allowEventName(eventName) {
+        return this._eventNames.has(eventName);
+    }
+    /**
+     * Creates a new span
+     * @param element
+     * @param eventName
+     */
+    _createSpan(element, eventName, parentSpan) {
+        if (!(element instanceof HTMLElement)) {
+            return undefined;
+        }
+        if (!element.getAttribute) {
+            return undefined;
+        }
+        if (element.hasAttribute('disabled')) {
+            return undefined;
+        }
+        if (!this._allowEventName(eventName)) {
+            return undefined;
+        }
+        const xpath = sdk_trace_web_1.getElementXPath(element, true);
+        try {
+            const span = this.tracer.startSpan(eventName, {
+                attributes: {
+                    [AttributeNames_1.AttributeNames.COMPONENT]: this.component,
+                    [AttributeNames_1.AttributeNames.EVENT_TYPE]: eventName,
+                    [AttributeNames_1.AttributeNames.TARGET_ELEMENT]: element.tagName,
+                    [AttributeNames_1.AttributeNames.TARGET_XPATH]: xpath,
+                    [AttributeNames_1.AttributeNames.HTTP_URL]: window.location.href,
+                    [AttributeNames_1.AttributeNames.HTTP_USER_AGENT]: navigator.userAgent,
+                },
+            }, parentSpan
+                ? api.trace.setSpan(api.context.active(), parentSpan)
+                : undefined);
+            if (this._shouldPreventSpanCreation(eventName, element, span) === true) {
+                return undefined;
+            }
+            this._spansData.set(span, {
+                taskCount: 0,
+            });
+            return span;
+        }
+        catch (e) {
+            api.diag.error(this.component, e);
+        }
+        return undefined;
+    }
+    /**
+     * Decrement number of tasks that left in zone,
+     * This is needed to be able to end span when no more tasks left
+     * @param span
+     */
+    _decrementTask(span) {
+        const spanData = this._spansData.get(span);
+        if (spanData) {
+            spanData.taskCount--;
+            if (spanData.taskCount === 0) {
+                this._tryToEndSpan(span, spanData.hrTimeLastTimeout);
+            }
+        }
+    }
+    /**
+     * Return the current span
+     * @param zone
+     * @private
+     */
+    _getCurrentSpan(zone) {
+        const context = zone.get(ZONE_CONTEXT_KEY);
+        if (context) {
+            return api.trace.getSpan(context);
+        }
+        return context;
+    }
+    /**
+     * Increment number of tasks that are run within the same zone.
+     *     This is needed to be able to end span when no more tasks left
+     * @param span
+     */
+    _incrementTask(span) {
+        const spanData = this._spansData.get(span);
+        if (spanData) {
+            spanData.taskCount++;
+        }
+    }
+    /**
+     * Returns true iff we should use the patched callback; false if it's already been patched
+     */
+    addPatchedListener(on, type, listener, wrappedListener) {
+        let listener2Type = this._wrappedListeners.get(listener);
+        if (!listener2Type) {
+            listener2Type = new Map();
+            this._wrappedListeners.set(listener, listener2Type);
+        }
+        let element2patched = listener2Type.get(type);
+        if (!element2patched) {
+            element2patched = new Map();
+            listener2Type.set(type, element2patched);
+        }
+        if (element2patched.has(on)) {
+            return false;
+        }
+        element2patched.set(on, wrappedListener);
+        return true;
+    }
+    /**
+     * Returns the patched version of the callback (or undefined)
+     */
+    removePatchedListener(on, type, listener) {
+        const listener2Type = this._wrappedListeners.get(listener);
+        if (!listener2Type) {
+            return undefined;
+        }
+        const element2patched = listener2Type.get(type);
+        if (!element2patched) {
+            return undefined;
+        }
+        const patched = element2patched.get(on);
+        if (patched) {
+            element2patched.delete(on);
+            if (element2patched.size === 0) {
+                listener2Type.delete(type);
+                if (listener2Type.size === 0) {
+                    this._wrappedListeners.delete(listener);
+                }
+            }
+        }
+        return patched;
+    }
+    // utility method to deal with the Function|EventListener nature of addEventListener
+    _invokeListener(listener, target, args) {
+        if (typeof listener === 'function') {
+            return listener.apply(target, args);
+        }
+        else {
+            return listener.handleEvent(args[0]);
+        }
+    }
+    /**
+     * This patches the addEventListener of HTMLElement to be able to
+     * auto instrument the click events
+     * This is done when zone is not available
+     */
+    _patchAddEventListener() {
+        const plugin = this;
+        return (original) => {
+            return function addEventListenerPatched(type, listener, useCapture) {
+                // Forward calls with listener = null
+                if (!listener) {
+                    return original.call(this, type, listener, useCapture);
+                }
+                const once = typeof useCapture === 'object' && useCapture.once;
+                const patchedListener = function (...args) {
+                    let parentSpan;
+                    const event = args[0];
+                    const target = event === null || event === void 0 ? void 0 : event.target;
+                    if (event) {
+                        parentSpan = plugin._eventsSpanMap.get(event);
+                    }
+                    if (once) {
+                        plugin.removePatchedListener(this, type, listener);
+                    }
+                    const span = plugin._createSpan(target, type, parentSpan);
+                    if (span) {
+                        if (event) {
+                            plugin._eventsSpanMap.set(event, span);
+                        }
+                        return api.context.with(api.trace.setSpan(api.context.active(), span), () => {
+                            const result = plugin._invokeListener(listener, this, args);
+                            // no zone so end span immediately
+                            span.end();
+                            return result;
+                        });
+                    }
+                    else {
+                        return plugin._invokeListener(listener, this, args);
+                    }
+                };
+                if (plugin.addPatchedListener(this, type, listener, patchedListener)) {
+                    return original.call(this, type, patchedListener, useCapture);
+                }
+            };
+        };
+    }
+    /**
+     * This patches the removeEventListener of HTMLElement to handle the fact that
+     * we patched the original callbacks
+     * This is done when zone is not available
+     */
+    _patchRemoveEventListener() {
+        const plugin = this;
+        return (original) => {
+            return function removeEventListenerPatched(type, listener, useCapture) {
+                const wrappedListener = plugin.removePatchedListener(this, type, listener);
+                if (wrappedListener) {
+                    return original.call(this, type, wrappedListener, useCapture);
+                }
+                else {
+                    return original.call(this, type, listener, useCapture);
+                }
+            };
+        };
+    }
+    /**
+     * Most browser provide event listener api via EventTarget in prototype chain.
+     * Exception to this is IE 11 which has it on the prototypes closest to EventTarget:
+     *
+     * * - has addEventListener in IE
+     * ** - has addEventListener in all other browsers
+     * ! - missing in IE
+     *
+     * HTMLElement -> Element -> Node * -> EventTarget **! -> Object
+     * Document -> Node * -> EventTarget **! -> Object
+     * Window * -> WindowProperties ! -> EventTarget **! -> Object
+     */
+    _getPatchableEventTargets() {
+        return window.EventTarget
+            ? [EventTarget.prototype]
+            : [Node.prototype, Window.prototype];
+    }
+    /**
+     * Patches the history api
+     */
+    _patchHistoryApi() {
+        this._unpatchHistoryApi();
+        this._wrap(history, 'replaceState', this._patchHistoryMethod());
+        this._wrap(history, 'pushState', this._patchHistoryMethod());
+        this._wrap(history, 'back', this._patchHistoryMethod());
+        this._wrap(history, 'forward', this._patchHistoryMethod());
+        this._wrap(history, 'go', this._patchHistoryMethod());
+    }
+    /**
+     * Patches the certain history api method
+     */
+    _patchHistoryMethod() {
+        const plugin = this;
+        return (original) => {
+            return function patchHistoryMethod(...args) {
+                const url = `${location.pathname}${location.hash}${location.search}`;
+                const result = original.apply(this, args);
+                const urlAfter = `${location.pathname}${location.hash}${location.search}`;
+                if (url !== urlAfter) {
+                    plugin._updateInteractionName(urlAfter);
+                }
+                return result;
+            };
+        };
+    }
+    /**
+     * unpatch the history api methods
+     */
+    _unpatchHistoryApi() {
+        if (instrumentation_1.isWrapped(history.replaceState))
+            this._unwrap(history, 'replaceState');
+        if (instrumentation_1.isWrapped(history.pushState))
+            this._unwrap(history, 'pushState');
+        if (instrumentation_1.isWrapped(history.back))
+            this._unwrap(history, 'back');
+        if (instrumentation_1.isWrapped(history.forward))
+            this._unwrap(history, 'forward');
+        if (instrumentation_1.isWrapped(history.go))
+            this._unwrap(history, 'go');
+    }
+    /**
+     * Updates interaction span name
+     * @param url
+     */
+    _updateInteractionName(url) {
+        const span = api.trace.getSpan(api.context.active());
+        if (span && typeof span.updateName === 'function') {
+            span.updateName(`${EVENT_NAVIGATION_NAME} ${url}`);
+        }
+    }
+    /**
+     * Patches zone cancel task - this is done to be able to correctly
+     * decrement the number of remaining tasks
+     */
+    _patchZoneCancelTask() {
+        const plugin = this;
+        return (original) => {
+            return function patchCancelTask(task) {
+                const currentZone = Zone.current;
+                const currentSpan = plugin._getCurrentSpan(currentZone);
+                if (currentSpan && plugin._shouldCountTask(task, currentZone)) {
+                    plugin._decrementTask(currentSpan);
+                }
+                return original.call(this, task);
+            };
+        };
+    }
+    /**
+     * Patches zone schedule task - this is done to be able to correctly
+     * increment the number of tasks running within current zone but also to
+     * save time in case of timeout running from xhr plugin when waiting for
+     * main request from PerformanceResourceTiming
+     */
+    _patchZoneScheduleTask() {
+        const plugin = this;
+        return (original) => {
+            return function patchScheduleTask(task) {
+                const currentZone = Zone.current;
+                const currentSpan = plugin._getCurrentSpan(currentZone);
+                if (currentSpan && plugin._shouldCountTask(task, currentZone)) {
+                    plugin._incrementTask(currentSpan);
+                    plugin._checkForTimeout(task, currentSpan);
+                }
+                return original.call(this, task);
+            };
+        };
+    }
+    /**
+     * Patches zone run task - this is done to be able to create a span when
+     * user interaction starts
+     * @private
+     */
+    _patchZoneRunTask() {
+        const plugin = this;
+        return (original) => {
+            return function patchRunTask(task, applyThis, applyArgs) {
+                const event = Array.isArray(applyArgs) && applyArgs[0] instanceof Event
+                    ? applyArgs[0]
+                    : undefined;
+                const target = event === null || event === void 0 ? void 0 : event.target;
+                let span;
+                const activeZone = this;
+                if (target) {
+                    span = plugin._createSpan(target, task.eventName);
+                    if (span) {
+                        plugin._incrementTask(span);
+                        return activeZone.run(() => {
+                            try {
+                                return api.context.with(api.trace.setSpan(api.context.active(), span), () => {
+                                    const currentZone = Zone.current;
+                                    task._zone = currentZone;
+                                    return original.call(currentZone, task, applyThis, applyArgs);
+                                });
+                            }
+                            finally {
+                                plugin._decrementTask(span);
+                            }
+                        });
+                    }
+                }
+                else {
+                    span = plugin._getCurrentSpan(activeZone);
+                }
+                try {
+                    return original.call(activeZone, task, applyThis, applyArgs);
+                }
+                finally {
+                    if (span && plugin._shouldCountTask(task, activeZone)) {
+                        plugin._decrementTask(span);
+                    }
+                }
+            };
+        };
+    }
+    /**
+     * Decides if task should be counted.
+     * @param task
+     * @param currentZone
+     * @private
+     */
+    _shouldCountTask(task, currentZone) {
+        if (task._zone) {
+            currentZone = task._zone;
+        }
+        if (!currentZone || !task.data || task.data.isPeriodic) {
+            return false;
+        }
+        const currentSpan = this._getCurrentSpan(currentZone);
+        if (!currentSpan) {
+            return false;
+        }
+        if (!this._spansData.get(currentSpan)) {
+            return false;
+        }
+        return task.type === 'macroTask' || task.type === 'microTask';
+    }
+    /**
+     * Will try to end span when such span still exists.
+     * @param span
+     * @param endTime
+     * @private
+     */
+    _tryToEndSpan(span, endTime) {
+        if (span) {
+            const spanData = this._spansData.get(span);
+            if (spanData) {
+                span.end(endTime);
+                this._spansData.delete(span);
+            }
+        }
+    }
+    /**
+     * implements enable function
+     */
+    enable() {
+        const ZoneWithPrototype = this.getZoneWithPrototype();
+        api.diag.debug('applying patch to', this.moduleName, this.version, 'zone:', !!ZoneWithPrototype);
+        if (ZoneWithPrototype) {
+            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.runTask)) {
+                this._unwrap(ZoneWithPrototype.prototype, 'runTask');
+                api.diag.debug('removing previous patch from method runTask');
+            }
+            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.scheduleTask)) {
+                this._unwrap(ZoneWithPrototype.prototype, 'scheduleTask');
+                api.diag.debug('removing previous patch from method scheduleTask');
+            }
+            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.cancelTask)) {
+                this._unwrap(ZoneWithPrototype.prototype, 'cancelTask');
+                api.diag.debug('removing previous patch from method cancelTask');
+            }
+            this._zonePatched = true;
+            this._wrap(ZoneWithPrototype.prototype, 'runTask', this._patchZoneRunTask());
+            this._wrap(ZoneWithPrototype.prototype, 'scheduleTask', this._patchZoneScheduleTask());
+            this._wrap(ZoneWithPrototype.prototype, 'cancelTask', this._patchZoneCancelTask());
+        }
+        else {
+            this._zonePatched = false;
+            const targets = this._getPatchableEventTargets();
+            targets.forEach(target => {
+                if (instrumentation_1.isWrapped(target.addEventListener)) {
+                    this._unwrap(target, 'addEventListener');
+                    api.diag.debug('removing previous patch from method addEventListener');
+                }
+                if (instrumentation_1.isWrapped(target.removeEventListener)) {
+                    this._unwrap(target, 'removeEventListener');
+                    api.diag.debug('removing previous patch from method removeEventListener');
+                }
+                this._wrap(target, 'addEventListener', this._patchAddEventListener());
+                this._wrap(target, 'removeEventListener', this._patchRemoveEventListener());
+            });
+        }
+        this._patchHistoryApi();
+    }
+    /**
+     * implements unpatch function
+     */
+    disable() {
+        const ZoneWithPrototype = this.getZoneWithPrototype();
+        api.diag.debug('removing patch from', this.moduleName, this.version, 'zone:', !!ZoneWithPrototype);
+        if (ZoneWithPrototype && this._zonePatched) {
+            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.runTask)) {
+                this._unwrap(ZoneWithPrototype.prototype, 'runTask');
+            }
+            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.scheduleTask)) {
+                this._unwrap(ZoneWithPrototype.prototype, 'scheduleTask');
+            }
+            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.cancelTask)) {
+                this._unwrap(ZoneWithPrototype.prototype, 'cancelTask');
+            }
+        }
+        else {
+            const targets = this._getPatchableEventTargets();
+            targets.forEach(target => {
+                if (instrumentation_1.isWrapped(target.addEventListener)) {
+                    this._unwrap(target, 'addEventListener');
+                }
+                if (instrumentation_1.isWrapped(target.removeEventListener)) {
+                    this._unwrap(target, 'removeEventListener');
+                }
+            });
+        }
+        this._unpatchHistoryApi();
+    }
+    /**
+     * returns Zone
+     */
+    getZoneWithPrototype() {
+        const _window = window;
+        return _window.Zone;
+    }
+}
+exports.UserInteractionInstrumentation = UserInteractionInstrumentation;
+
+},{"./enums/AttributeNames":152,"./version":155,"@opentelemetry/api":33,"@opentelemetry/core":165,"@opentelemetry/instrumentation":235,"@opentelemetry/sdk-trace-web":344}],155:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.VERSION = void 0;
+// this is autogenerated file, see scripts/version-update.js
+exports.VERSION = '0.28.1';
+
+},{}],156:[function(require,module,exports){
+arguments[4][74][0].apply(exports,arguments)
+},{"dup":74}],157:[function(require,module,exports){
+arguments[4][75][0].apply(exports,arguments)
+},{"dup":75}],158:[function(require,module,exports){
+arguments[4][76][0].apply(exports,arguments)
+},{"../../trace/suppress-tracing":184,"../constants":157,"../utils":159,"@opentelemetry/api":33,"dup":76}],159:[function(require,module,exports){
+arguments[4][77][0].apply(exports,arguments)
+},{"./constants":157,"@opentelemetry/api":33,"dup":77}],160:[function(require,module,exports){
+arguments[4][78][0].apply(exports,arguments)
+},{"dup":78}],161:[function(require,module,exports){
+arguments[4][79][0].apply(exports,arguments)
+},{"./logging-error-handler":162,"dup":79}],162:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":80}],163:[function(require,module,exports){
+arguments[4][81][0].apply(exports,arguments)
+},{"../platform":171,"dup":81}],164:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],165:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"./ExportResult":156,"./baggage/propagation/W3CBaggagePropagator":158,"./baggage/utils":159,"./common/attributes":160,"./common/global-error-handler":161,"./common/logging-error-handler":162,"./common/time":163,"./common/types":164,"./platform":171,"./propagation/composite":175,"./trace/IdGenerator":176,"./trace/TraceState":177,"./trace/W3CTraceContextPropagator":178,"./trace/rpc-metadata":179,"./trace/sampler/AlwaysOffSampler":180,"./trace/sampler/AlwaysOnSampler":181,"./trace/sampler/ParentBasedSampler":182,"./trace/sampler/TraceIdRatioBasedSampler":183,"./trace/suppress-tracing":184,"./utils/environment":185,"./utils/merge":187,"./utils/sampling":188,"./utils/url":189,"./utils/wrap":190,"./version":191,"dup":83}],166:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],167:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85}],168:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"../../utils/environment":185,"./globalThis":169,"dup":86}],169:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],170:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88}],171:[function(require,module,exports){
+arguments[4][89][0].apply(exports,arguments)
+},{"./RandomIdGenerator":167,"./environment":168,"./globalThis":169,"./hex-to-base64":170,"./performance":172,"./sdk-info":173,"./timer-util":174,"dup":89}],172:[function(require,module,exports){
+arguments[4][90][0].apply(exports,arguments)
+},{"dup":90}],173:[function(require,module,exports){
+arguments[4][91][0].apply(exports,arguments)
+},{"../../version":191,"@opentelemetry/semantic-conventions":383,"dup":91}],174:[function(require,module,exports){
+arguments[4][92][0].apply(exports,arguments)
+},{"dup":92}],175:[function(require,module,exports){
+arguments[4][93][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":93}],176:[function(require,module,exports){
+arguments[4][94][0].apply(exports,arguments)
+},{"dup":94}],177:[function(require,module,exports){
+arguments[4][95][0].apply(exports,arguments)
+},{"../internal/validators":166,"dup":95}],178:[function(require,module,exports){
+arguments[4][96][0].apply(exports,arguments)
+},{"./TraceState":177,"./suppress-tracing":184,"@opentelemetry/api":33,"dup":96}],179:[function(require,module,exports){
+arguments[4][97][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":97}],180:[function(require,module,exports){
+arguments[4][98][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":98}],181:[function(require,module,exports){
+arguments[4][99][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":99}],182:[function(require,module,exports){
+arguments[4][100][0].apply(exports,arguments)
+},{"../../common/global-error-handler":161,"./AlwaysOffSampler":180,"./AlwaysOnSampler":181,"@opentelemetry/api":33,"dup":100}],183:[function(require,module,exports){
+arguments[4][101][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":101}],184:[function(require,module,exports){
+arguments[4][102][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":102}],185:[function(require,module,exports){
+arguments[4][103][0].apply(exports,arguments)
+},{"./sampling":188,"@opentelemetry/api":33,"dup":103}],186:[function(require,module,exports){
+arguments[4][104][0].apply(exports,arguments)
+},{"dup":104}],187:[function(require,module,exports){
+arguments[4][105][0].apply(exports,arguments)
+},{"./lodash.merge":186,"dup":105}],188:[function(require,module,exports){
+arguments[4][106][0].apply(exports,arguments)
+},{"dup":106}],189:[function(require,module,exports){
+arguments[4][107][0].apply(exports,arguments)
+},{"dup":107}],190:[function(require,module,exports){
+arguments[4][108][0].apply(exports,arguments)
+},{"dup":108}],191:[function(require,module,exports){
+arguments[4][109][0].apply(exports,arguments)
+},{"dup":109}],192:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AttributeNames = void 0;
+/**
+ * https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/trace/semantic_conventions/http.md
+ */
+var AttributeNames;
+(function (AttributeNames) {
+    AttributeNames["HTTP_STATUS_TEXT"] = "http.status_text";
+})(AttributeNames = exports.AttributeNames || (exports.AttributeNames = {}));
+
+},{}],193:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.EventNames = void 0;
+var EventNames;
+(function (EventNames) {
+    EventNames["METHOD_OPEN"] = "open";
+    EventNames["METHOD_SEND"] = "send";
+    EventNames["EVENT_ABORT"] = "abort";
+    EventNames["EVENT_ERROR"] = "error";
+    EventNames["EVENT_LOAD"] = "loaded";
+    EventNames["EVENT_TIMEOUT"] = "timeout";
+})(EventNames = exports.EventNames || (exports.EventNames = {}));
+
+},{}],194:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./xhr"), exports);
+
+},{"./xhr":196}],195:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.VERSION = void 0;
+// this is autogenerated file, see scripts/version-update.js
+exports.VERSION = '0.27.0';
+
+},{}],196:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.XMLHttpRequestInstrumentation = void 0;
+const api = require("@opentelemetry/api");
+const instrumentation_1 = require("@opentelemetry/instrumentation");
+const core_1 = require("@opentelemetry/core");
+const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
+const sdk_trace_web_1 = require("@opentelemetry/sdk-trace-web");
+const EventNames_1 = require("./enums/EventNames");
+const version_1 = require("./version");
+const AttributeNames_1 = require("./enums/AttributeNames");
+// how long to wait for observer to collect information about resources
+// this is needed as event "load" is called before observer
+// hard to say how long it should really wait, seems like 300ms is
+// safe enough
+const OBSERVER_WAIT_TIME_MS = 300;
+/**
+ * This class represents a XMLHttpRequest plugin for auto instrumentation
+ */
+class XMLHttpRequestInstrumentation extends instrumentation_1.InstrumentationBase {
+    constructor(config) {
+        super('@opentelemetry/instrumentation-xml-http-request', version_1.VERSION, config);
+        this.component = 'xml-http-request';
+        this.version = version_1.VERSION;
+        this.moduleName = this.component;
+        this._tasksCount = 0;
+        this._xhrMem = new WeakMap();
+        this._usedResources = new WeakSet();
+    }
+    init() { }
+    _getConfig() {
+        return this._config;
+    }
+    /**
+     * Adds custom headers to XMLHttpRequest
+     * @param xhr
+     * @param span
+     * @private
+     */
+    _addHeaders(xhr, spanUrl) {
+        if (!sdk_trace_web_1.shouldPropagateTraceHeaders(spanUrl, this._getConfig().propagateTraceHeaderCorsUrls)) {
+            const headers = {};
+            api.propagation.inject(api.context.active(), headers);
+            if (Object.keys(headers).length > 0) {
+                this._diag.debug('headers inject skipped due to CORS policy');
+            }
+            return;
+        }
+        const headers = {};
+        api.propagation.inject(api.context.active(), headers);
+        Object.keys(headers).forEach(key => {
+            xhr.setRequestHeader(key, String(headers[key]));
+        });
+    }
+    /**
+     * Add cors pre flight child span
+     * @param span
+     * @param corsPreFlightRequest
+     * @private
+     */
+    _addChildSpan(span, corsPreFlightRequest) {
+        api.context.with(api.trace.setSpan(api.context.active(), span), () => {
+            const childSpan = this.tracer.startSpan('CORS Preflight', {
+                startTime: corsPreFlightRequest[sdk_trace_web_1.PerformanceTimingNames.FETCH_START],
+            });
+            sdk_trace_web_1.addSpanNetworkEvents(childSpan, corsPreFlightRequest);
+            childSpan.end(corsPreFlightRequest[sdk_trace_web_1.PerformanceTimingNames.RESPONSE_END]);
+        });
+    }
+    /**
+     * Add attributes when span is going to end
+     * @param span
+     * @param xhr
+     * @param spanUrl
+     * @private
+     */
+    _addFinalSpanAttributes(span, xhrMem, spanUrl) {
+        if (typeof spanUrl === 'string') {
+            const parsedUrl = sdk_trace_web_1.parseUrl(spanUrl);
+            if (xhrMem.status !== undefined) {
+                span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_STATUS_CODE, xhrMem.status);
+            }
+            if (xhrMem.statusText !== undefined) {
+                span.setAttribute(AttributeNames_1.AttributeNames.HTTP_STATUS_TEXT, xhrMem.statusText);
+            }
+            span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_HOST, parsedUrl.host);
+            span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_SCHEME, parsedUrl.protocol.replace(':', ''));
+            // @TODO do we want to collect this or it will be collected earlier once only or
+            //    maybe when parent span is not available ?
+            span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_USER_AGENT, navigator.userAgent);
+        }
+    }
+    _applyAttributesAfterXHR(span, xhr) {
+        const applyCustomAttributesOnSpan = this._getConfig()
+            .applyCustomAttributesOnSpan;
+        if (typeof applyCustomAttributesOnSpan === 'function') {
+            instrumentation_1.safeExecuteInTheMiddle(() => applyCustomAttributesOnSpan(span, xhr), error => {
+                if (!error) {
+                    return;
+                }
+                this._diag.error('applyCustomAttributesOnSpan', error);
+            }, true);
+        }
+    }
+    /**
+     * will collect information about all resources created
+     * between "send" and "end" with additional waiting for main resource
+     * @param xhr
+     * @param spanUrl
+     * @private
+     */
+    _addResourceObserver(xhr, spanUrl) {
+        const xhrMem = this._xhrMem.get(xhr);
+        if (!xhrMem ||
+            typeof window.PerformanceObserver === 'undefined' ||
+            typeof window.PerformanceResourceTiming === 'undefined') {
+            return;
+        }
+        xhrMem.createdResources = {
+            observer: new PerformanceObserver(list => {
+                const entries = list.getEntries();
+                const urlNormalizingAnchor = sdk_trace_web_1.getUrlNormalizingAnchor();
+                urlNormalizingAnchor.href = spanUrl;
+                entries.forEach(entry => {
+                    if (entry.initiatorType === 'xmlhttprequest' &&
+                        entry.name === urlNormalizingAnchor.href) {
+                        if (xhrMem.createdResources) {
+                            xhrMem.createdResources.entries.push(entry);
+                        }
+                    }
+                });
+            }),
+            entries: [],
+        };
+        xhrMem.createdResources.observer.observe({
+            entryTypes: ['resource'],
+        });
+    }
+    /**
+     * Clears the resource timings and all resources assigned with spans
+     *     when {@link XMLHttpRequestInstrumentationConfig.clearTimingResources} is
+     *     set to true (default false)
+     * @private
+     */
+    _clearResources() {
+        if (this._tasksCount === 0 && this._getConfig().clearTimingResources) {
+            core_1.otperformance.clearResourceTimings();
+            this._xhrMem = new WeakMap();
+            this._usedResources = new WeakSet();
+        }
+    }
+    /**
+     * Finds appropriate resource and add network events to the span
+     * @param span
+     */
+    _findResourceAndAddNetworkEvents(xhrMem, span, spanUrl, startTime, endTime) {
+        if (!spanUrl || !startTime || !endTime || !xhrMem.createdResources) {
+            return;
+        }
+        let resources = xhrMem.createdResources.entries;
+        if (!resources || !resources.length) {
+            // fallback - either Observer is not available or it took longer
+            // then OBSERVER_WAIT_TIME_MS and observer didn't collect enough
+            // information
+            // ts thinks this is the perf_hooks module, but it is the browser performance api
+            resources = core_1.otperformance.getEntriesByType('resource');
+        }
+        const resource = sdk_trace_web_1.getResource(spanUrl, startTime, endTime, resources, this._usedResources);
+        if (resource.mainRequest) {
+            const mainRequest = resource.mainRequest;
+            this._markResourceAsUsed(mainRequest);
+            const corsPreFlightRequest = resource.corsPreFlightRequest;
+            if (corsPreFlightRequest) {
+                this._addChildSpan(span, corsPreFlightRequest);
+                this._markResourceAsUsed(corsPreFlightRequest);
+            }
+            sdk_trace_web_1.addSpanNetworkEvents(span, mainRequest);
+        }
+    }
+    /**
+     * Removes the previous information about span.
+     * This might happened when the same xhr is used again.
+     * @param xhr
+     * @private
+     */
+    _cleanPreviousSpanInformation(xhr) {
+        const xhrMem = this._xhrMem.get(xhr);
+        if (xhrMem) {
+            const callbackToRemoveEvents = xhrMem.callbackToRemoveEvents;
+            if (callbackToRemoveEvents) {
+                callbackToRemoveEvents();
+            }
+            this._xhrMem.delete(xhr);
+        }
+    }
+    /**
+     * Creates a new span when method "open" is called
+     * @param xhr
+     * @param url
+     * @param method
+     * @private
+     */
+    _createSpan(xhr, url, method) {
+        if (core_1.isUrlIgnored(url, this._getConfig().ignoreUrls)) {
+            this._diag.debug('ignoring span as url matches ignored url');
+            return;
+        }
+        const spanName = `HTTP ${method.toUpperCase()}`;
+        const currentSpan = this.tracer.startSpan(spanName, {
+            kind: api.SpanKind.CLIENT,
+            attributes: {
+                [semantic_conventions_1.SemanticAttributes.HTTP_METHOD]: method,
+                [semantic_conventions_1.SemanticAttributes.HTTP_URL]: url,
+            },
+        });
+        currentSpan.addEvent(EventNames_1.EventNames.METHOD_OPEN);
+        this._cleanPreviousSpanInformation(xhr);
+        this._xhrMem.set(xhr, {
+            span: currentSpan,
+            spanUrl: url,
+        });
+        return currentSpan;
+    }
+    /**
+     * Marks certain [resource]{@link PerformanceResourceTiming} when information
+     * from this is used to add events to span.
+     * This is done to avoid reusing the same resource again for next span
+     * @param resource
+     * @private
+     */
+    _markResourceAsUsed(resource) {
+        this._usedResources.add(resource);
+    }
+    /**
+     * Patches the method open
+     * @private
+     */
+    _patchOpen() {
+        return (original) => {
+            const plugin = this;
+            return function patchOpen(...args) {
+                const method = args[0];
+                const url = args[1];
+                plugin._createSpan(this, url, method);
+                return original.apply(this, args);
+            };
+        };
+    }
+    /**
+     * Patches the method send
+     * @private
+     */
+    _patchSend() {
+        const plugin = this;
+        function endSpanTimeout(eventName, xhrMem, endTime) {
+            const callbackToRemoveEvents = xhrMem.callbackToRemoveEvents;
+            if (typeof callbackToRemoveEvents === 'function') {
+                callbackToRemoveEvents();
+            }
+            const { span, spanUrl, sendStartTime } = xhrMem;
+            if (span) {
+                plugin._findResourceAndAddNetworkEvents(xhrMem, span, spanUrl, sendStartTime, endTime);
+                span.addEvent(eventName, endTime);
+                plugin._addFinalSpanAttributes(span, xhrMem, spanUrl);
+                span.end(endTime);
+                plugin._tasksCount--;
+            }
+            plugin._clearResources();
+        }
+        function endSpan(eventName, xhr) {
+            const xhrMem = plugin._xhrMem.get(xhr);
+            if (!xhrMem) {
+                return;
+            }
+            xhrMem.status = xhr.status;
+            xhrMem.statusText = xhr.statusText;
+            plugin._xhrMem.delete(xhr);
+            if (xhrMem.span) {
+                plugin._applyAttributesAfterXHR(xhrMem.span, xhr);
+            }
+            const endTime = core_1.hrTime();
+            // the timeout is needed as observer doesn't have yet information
+            // when event "load" is called. Also the time may differ depends on
+            // browser and speed of computer
+            setTimeout(() => {
+                endSpanTimeout(eventName, xhrMem, endTime);
+            }, OBSERVER_WAIT_TIME_MS);
+        }
+        function onError() {
+            endSpan(EventNames_1.EventNames.EVENT_ERROR, this);
+        }
+        function onAbort() {
+            endSpan(EventNames_1.EventNames.EVENT_ABORT, this);
+        }
+        function onTimeout() {
+            endSpan(EventNames_1.EventNames.EVENT_TIMEOUT, this);
+        }
+        function onLoad() {
+            if (this.status < 299) {
+                endSpan(EventNames_1.EventNames.EVENT_LOAD, this);
+            }
+            else {
+                endSpan(EventNames_1.EventNames.EVENT_ERROR, this);
+            }
+        }
+        function unregister(xhr) {
+            xhr.removeEventListener('abort', onAbort);
+            xhr.removeEventListener('error', onError);
+            xhr.removeEventListener('load', onLoad);
+            xhr.removeEventListener('timeout', onTimeout);
+            const xhrMem = plugin._xhrMem.get(xhr);
+            if (xhrMem) {
+                xhrMem.callbackToRemoveEvents = undefined;
+            }
+        }
+        return (original) => {
+            return function patchSend(...args) {
+                const xhrMem = plugin._xhrMem.get(this);
+                if (!xhrMem) {
+                    return original.apply(this, args);
+                }
+                const currentSpan = xhrMem.span;
+                const spanUrl = xhrMem.spanUrl;
+                if (currentSpan && spanUrl) {
+                    api.context.with(api.trace.setSpan(api.context.active(), currentSpan), () => {
+                        plugin._tasksCount++;
+                        xhrMem.sendStartTime = core_1.hrTime();
+                        currentSpan.addEvent(EventNames_1.EventNames.METHOD_SEND);
+                        this.addEventListener('abort', onAbort);
+                        this.addEventListener('error', onError);
+                        this.addEventListener('load', onLoad);
+                        this.addEventListener('timeout', onTimeout);
+                        xhrMem.callbackToRemoveEvents = () => {
+                            unregister(this);
+                            if (xhrMem.createdResources) {
+                                xhrMem.createdResources.observer.disconnect();
+                            }
+                        };
+                        plugin._addHeaders(this, spanUrl);
+                        plugin._addResourceObserver(this, spanUrl);
+                    });
+                }
+                return original.apply(this, args);
+            };
+        };
+    }
+    /**
+     * implements enable function
+     */
+    enable() {
+        this._diag.debug('applying patch to', this.moduleName, this.version);
+        if (instrumentation_1.isWrapped(XMLHttpRequest.prototype.open)) {
+            this._unwrap(XMLHttpRequest.prototype, 'open');
+            this._diag.debug('removing previous patch from method open');
+        }
+        if (instrumentation_1.isWrapped(XMLHttpRequest.prototype.send)) {
+            this._unwrap(XMLHttpRequest.prototype, 'send');
+            this._diag.debug('removing previous patch from method send');
+        }
+        this._wrap(XMLHttpRequest.prototype, 'open', this._patchOpen());
+        this._wrap(XMLHttpRequest.prototype, 'send', this._patchSend());
+    }
+    /**
+     * implements disable function
+     */
+    disable() {
+        this._diag.debug('removing patch from', this.moduleName, this.version);
+        this._unwrap(XMLHttpRequest.prototype, 'open');
+        this._unwrap(XMLHttpRequest.prototype, 'send');
+        this._tasksCount = 0;
+        this._xhrMem = new WeakMap();
+        this._usedResources = new WeakSet();
+    }
+}
+exports.XMLHttpRequestInstrumentation = XMLHttpRequestInstrumentation;
+
+},{"./enums/AttributeNames":192,"./enums/EventNames":193,"./version":195,"@opentelemetry/api":33,"@opentelemetry/core":206,"@opentelemetry/instrumentation":235,"@opentelemetry/sdk-trace-web":344,"@opentelemetry/semantic-conventions":383}],197:[function(require,module,exports){
+arguments[4][74][0].apply(exports,arguments)
+},{"dup":74}],198:[function(require,module,exports){
+arguments[4][75][0].apply(exports,arguments)
+},{"dup":75}],199:[function(require,module,exports){
+arguments[4][76][0].apply(exports,arguments)
+},{"../../trace/suppress-tracing":225,"../constants":198,"../utils":200,"@opentelemetry/api":33,"dup":76}],200:[function(require,module,exports){
+arguments[4][77][0].apply(exports,arguments)
+},{"./constants":198,"@opentelemetry/api":33,"dup":77}],201:[function(require,module,exports){
+arguments[4][78][0].apply(exports,arguments)
+},{"dup":78}],202:[function(require,module,exports){
+arguments[4][79][0].apply(exports,arguments)
+},{"./logging-error-handler":203,"dup":79}],203:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":80}],204:[function(require,module,exports){
+arguments[4][81][0].apply(exports,arguments)
+},{"../platform":212,"dup":81}],205:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],206:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"./ExportResult":197,"./baggage/propagation/W3CBaggagePropagator":199,"./baggage/utils":200,"./common/attributes":201,"./common/global-error-handler":202,"./common/logging-error-handler":203,"./common/time":204,"./common/types":205,"./platform":212,"./propagation/composite":216,"./trace/IdGenerator":217,"./trace/TraceState":218,"./trace/W3CTraceContextPropagator":219,"./trace/rpc-metadata":220,"./trace/sampler/AlwaysOffSampler":221,"./trace/sampler/AlwaysOnSampler":222,"./trace/sampler/ParentBasedSampler":223,"./trace/sampler/TraceIdRatioBasedSampler":224,"./trace/suppress-tracing":225,"./utils/environment":226,"./utils/merge":228,"./utils/sampling":229,"./utils/url":230,"./utils/wrap":231,"./version":232,"dup":83}],207:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],208:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85}],209:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"../../utils/environment":226,"./globalThis":210,"dup":86}],210:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],211:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88}],212:[function(require,module,exports){
+arguments[4][89][0].apply(exports,arguments)
+},{"./RandomIdGenerator":208,"./environment":209,"./globalThis":210,"./hex-to-base64":211,"./performance":213,"./sdk-info":214,"./timer-util":215,"dup":89}],213:[function(require,module,exports){
+arguments[4][90][0].apply(exports,arguments)
+},{"dup":90}],214:[function(require,module,exports){
+arguments[4][91][0].apply(exports,arguments)
+},{"../../version":232,"@opentelemetry/semantic-conventions":383,"dup":91}],215:[function(require,module,exports){
+arguments[4][92][0].apply(exports,arguments)
+},{"dup":92}],216:[function(require,module,exports){
+arguments[4][93][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":93}],217:[function(require,module,exports){
+arguments[4][94][0].apply(exports,arguments)
+},{"dup":94}],218:[function(require,module,exports){
+arguments[4][95][0].apply(exports,arguments)
+},{"../internal/validators":207,"dup":95}],219:[function(require,module,exports){
+arguments[4][96][0].apply(exports,arguments)
+},{"./TraceState":218,"./suppress-tracing":225,"@opentelemetry/api":33,"dup":96}],220:[function(require,module,exports){
+arguments[4][97][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":97}],221:[function(require,module,exports){
+arguments[4][98][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":98}],222:[function(require,module,exports){
+arguments[4][99][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":99}],223:[function(require,module,exports){
+arguments[4][100][0].apply(exports,arguments)
+},{"../../common/global-error-handler":202,"./AlwaysOffSampler":221,"./AlwaysOnSampler":222,"@opentelemetry/api":33,"dup":100}],224:[function(require,module,exports){
+arguments[4][101][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":101}],225:[function(require,module,exports){
+arguments[4][102][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":102}],226:[function(require,module,exports){
+arguments[4][103][0].apply(exports,arguments)
+},{"./sampling":229,"@opentelemetry/api":33,"dup":103}],227:[function(require,module,exports){
+arguments[4][104][0].apply(exports,arguments)
+},{"dup":104}],228:[function(require,module,exports){
+arguments[4][105][0].apply(exports,arguments)
+},{"./lodash.merge":227,"dup":105}],229:[function(require,module,exports){
+arguments[4][106][0].apply(exports,arguments)
+},{"dup":106}],230:[function(require,module,exports){
+arguments[4][107][0].apply(exports,arguments)
+},{"dup":107}],231:[function(require,module,exports){
+arguments[4][108][0].apply(exports,arguments)
+},{"dup":108}],232:[function(require,module,exports){
+arguments[4][109][0].apply(exports,arguments)
+},{"dup":109}],233:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.registerInstrumentations = void 0;
+const api_1 = require("@opentelemetry/api");
+const api_metrics_1 = require("@opentelemetry/api-metrics");
+const autoLoaderUtils_1 = require("./autoLoaderUtils");
+/**
+ * It will register instrumentations and plugins
+ * @param options
+ * @return returns function to unload instrumentation and plugins that were
+ *   registered
+ */
+function registerInstrumentations(options) {
+    const { instrumentations } = autoLoaderUtils_1.parseInstrumentationOptions(options.instrumentations);
+    const tracerProvider = options.tracerProvider || api_1.trace.getTracerProvider();
+    const meterProvider = options.meterProvider || api_metrics_1.metrics.getMeterProvider();
+    autoLoaderUtils_1.enableInstrumentations(instrumentations, tracerProvider, meterProvider);
+    return () => {
+        autoLoaderUtils_1.disableInstrumentations(instrumentations);
+    };
+}
+exports.registerInstrumentations = registerInstrumentations;
+
+},{"./autoLoaderUtils":234,"@opentelemetry/api":33,"@opentelemetry/api-metrics":6}],234:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.disableInstrumentations = exports.enableInstrumentations = exports.parseInstrumentationOptions = void 0;
+/**
+ * Parses the options and returns instrumentations, node plugins and
+ *   web plugins
+ * @param options
+ */
+function parseInstrumentationOptions(options = []) {
+    let instrumentations = [];
+    for (let i = 0, j = options.length; i < j; i++) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const option = options[i];
+        if (Array.isArray(option)) {
+            const results = parseInstrumentationOptions(option);
+            instrumentations = instrumentations.concat(results.instrumentations);
+        }
+        else if (typeof option === 'function') {
+            instrumentations.push(new option());
+        }
+        else if (option.instrumentationName) {
+            instrumentations.push(option);
+        }
+    }
+    return { instrumentations };
+}
+exports.parseInstrumentationOptions = parseInstrumentationOptions;
+/**
+ * Enable instrumentations
+ * @param instrumentations
+ * @param tracerProvider
+ * @param meterProvider
+ */
+function enableInstrumentations(instrumentations, tracerProvider, meterProvider) {
+    for (let i = 0, j = instrumentations.length; i < j; i++) {
+        const instrumentation = instrumentations[i];
+        if (tracerProvider) {
+            instrumentation.setTracerProvider(tracerProvider);
+        }
+        if (meterProvider) {
+            instrumentation.setMeterProvider(meterProvider);
+        }
+        // instrumentations have been already enabled during creation
+        // so enable only if user prevented that by setting enabled to false
+        // this is to prevent double enabling but when calling register all
+        // instrumentations should be now enabled
+        if (!instrumentation.getConfig().enabled) {
+            instrumentation.enable();
+        }
+    }
+}
+exports.enableInstrumentations = enableInstrumentations;
+/**
+ * Disable instrumentations
+ * @param instrumentations
+ */
+function disableInstrumentations(instrumentations) {
+    instrumentations.forEach(instrumentation => instrumentation.disable());
+}
+exports.disableInstrumentations = disableInstrumentations;
+
+},{}],235:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./autoLoader"), exports);
+__exportStar(require("./platform/index"), exports);
+__exportStar(require("./types"), exports);
+__exportStar(require("./types_internal"), exports);
+__exportStar(require("./utils"), exports);
+
+},{"./autoLoader":233,"./platform/index":237,"./types":239,"./types_internal":240,"./utils":241}],236:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.InstrumentationAbstract = void 0;
+const api_1 = require("@opentelemetry/api");
+const api_metrics_1 = require("@opentelemetry/api-metrics");
+const shimmer = require("shimmer");
+/**
+ * Base abstract internal class for instrumenting node and web plugins
+ */
+class InstrumentationAbstract {
+    constructor(instrumentationName, instrumentationVersion, config = {}) {
+        this.instrumentationName = instrumentationName;
+        this.instrumentationVersion = instrumentationVersion;
+        /* Api to wrap instrumented method */
+        this._wrap = shimmer.wrap;
+        /* Api to unwrap instrumented methods */
+        this._unwrap = shimmer.unwrap;
+        /* Api to mass wrap instrumented method */
+        this._massWrap = shimmer.massWrap;
+        /* Api to mass unwrap instrumented methods */
+        this._massUnwrap = shimmer.massUnwrap;
+        this._config = Object.assign({ enabled: true }, config);
+        this._diag = api_1.diag.createComponentLogger({
+            namespace: instrumentationName,
+        });
+        this._tracer = api_1.trace.getTracer(instrumentationName, instrumentationVersion);
+        this._meter = api_metrics_1.metrics.getMeter(instrumentationName, instrumentationVersion);
+    }
+    /* Returns meter */
+    get meter() {
+        return this._meter;
+    }
+    /**
+     * Sets MeterProvider to this plugin
+     * @param meterProvider
+     */
+    setMeterProvider(meterProvider) {
+        this._meter = meterProvider.getMeter(this.instrumentationName, this.instrumentationVersion);
+    }
+    /* Returns InstrumentationConfig */
+    getConfig() {
+        return this._config;
+    }
+    /**
+     * Sets InstrumentationConfig to this plugin
+     * @param InstrumentationConfig
+     */
+    setConfig(config = {}) {
+        this._config = Object.assign({}, config);
+    }
+    /**
+     * Sets TraceProvider to this plugin
+     * @param tracerProvider
+     */
+    setTracerProvider(tracerProvider) {
+        this._tracer = tracerProvider.getTracer(this.instrumentationName, this.instrumentationVersion);
+    }
+    /* Returns tracer */
+    get tracer() {
+        return this._tracer;
+    }
+}
+exports.InstrumentationAbstract = InstrumentationAbstract;
+
+},{"@opentelemetry/api":33,"@opentelemetry/api-metrics":6,"shimmer":388}],237:[function(require,module,exports){
+arguments[4][112][0].apply(exports,arguments)
+},{"./instrumentation":238,"dup":112}],238:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.InstrumentationBase = void 0;
+const instrumentation_1 = require("../../instrumentation");
+/**
+ * Base abstract class for instrumenting web plugins
+ */
+class InstrumentationBase extends instrumentation_1.InstrumentationAbstract {
+    constructor(instrumentationName, instrumentationVersion, config = {}) {
+        super(instrumentationName, instrumentationVersion, config);
+        if (this._config.enabled) {
+            this.enable();
+        }
+    }
+}
+exports.InstrumentationBase = InstrumentationBase;
+
+},{"../../instrumentation":236}],239:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],240:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+
+},{}],241:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.isWrapped = exports.safeExecuteInTheMiddleAsync = exports.safeExecuteInTheMiddle = void 0;
+/**
+ * function to execute patched function and being able to catch errors
+ * @param execute - function to be executed
+ * @param onFinish - callback to run when execute finishes
+ */
+function safeExecuteInTheMiddle(execute, onFinish, preventThrowingError) {
+    let error;
+    let result;
+    try {
+        result = execute();
+    }
+    catch (e) {
+        error = e;
+    }
+    finally {
+        onFinish(error, result);
+        if (error && !preventThrowingError) {
+            // eslint-disable-next-line no-unsafe-finally
+            throw error;
+        }
+        // eslint-disable-next-line no-unsafe-finally
+        return result;
+    }
+}
+exports.safeExecuteInTheMiddle = safeExecuteInTheMiddle;
+/**
+ * Async function to execute patched function and being able to catch errors
+ * @param execute - function to be executed
+ * @param onFinish - callback to run when execute finishes
+ */
+async function safeExecuteInTheMiddleAsync(execute, onFinish, preventThrowingError) {
+    let error;
+    let result;
+    try {
+        result = await execute();
+    }
+    catch (e) {
+        error = e;
+    }
+    finally {
+        onFinish(error, result);
+        if (error && !preventThrowingError) {
+            // eslint-disable-next-line no-unsafe-finally
+            throw error;
+        }
+        // eslint-disable-next-line no-unsafe-finally
+        return result;
+    }
+}
+exports.safeExecuteInTheMiddleAsync = safeExecuteInTheMiddleAsync;
+/**
+ * Checks if certain function has been already wrapped
+ * @param func
+ */
+function isWrapped(func) {
+    return (typeof func === 'function' &&
+        typeof func.__original === 'function' &&
+        typeof func.__unwrap === 'function' &&
+        func.__wrapped === true);
+}
+exports.isWrapped = isWrapped;
+
+},{}],242:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Resource = void 0;
+const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
+const core_1 = require("@opentelemetry/core");
+const platform_1 = require("./platform");
+/**
+ * A Resource describes the entity for which a signals (metrics or trace) are
+ * collected.
+ */
+class Resource {
+    constructor(
+    /**
+     * A dictionary of attributes with string keys and values that provide
+     * information about the entity as numbers, strings or booleans
+     * TODO: Consider to add check/validation on attributes.
+     */
+    attributes) {
+        this.attributes = attributes;
+    }
+    /**
+     * Returns an empty Resource
+     */
+    static empty() {
+        return Resource.EMPTY;
+    }
+    /**
+     * Returns a Resource that indentifies the SDK in use.
+     */
+    static default() {
+        return new Resource({
+            [semantic_conventions_1.SemanticResourceAttributes.SERVICE_NAME]: platform_1.defaultServiceName(),
+            [semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_LANGUAGE]: core_1.SDK_INFO[semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_LANGUAGE],
+            [semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_NAME]: core_1.SDK_INFO[semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_NAME],
+            [semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_VERSION]: core_1.SDK_INFO[semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_VERSION],
+        });
+    }
+    /**
+     * Returns a new, merged {@link Resource} by merging the current Resource
+     * with the other Resource. In case of a collision, other Resource takes
+     * precedence.
+     *
+     * @param other the Resource that will be merged with this.
+     * @returns the newly merged Resource.
+     */
+    merge(other) {
+        if (!other || !Object.keys(other.attributes).length)
+            return this;
+        // SpanAttributes from resource overwrite attributes from other resource.
+        const mergedAttributes = Object.assign({}, this.attributes, other.attributes);
+        return new Resource(mergedAttributes);
+    }
+}
+exports.Resource = Resource;
+Resource.EMPTY = new Resource({});
+
+},{"./platform":247,"@opentelemetry/core":258,"@opentelemetry/semantic-conventions":383}],243:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+
+},{}],244:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./Resource"), exports);
+__exportStar(require("./platform"), exports);
+__exportStar(require("./types"), exports);
+__exportStar(require("./config"), exports);
+
+},{"./Resource":242,"./config":243,"./platform":247,"./types":248}],245:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.defaultServiceName = void 0;
+function defaultServiceName() {
+    return 'unknown_service';
+}
+exports.defaultServiceName = defaultServiceName;
+
+},{}],246:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.detectResources = void 0;
+const Resource_1 = require("../../Resource");
+/**
+ * Detects resources for the browser platform, which is currently only the
+ * telemetry SDK resource. More could be added in the future. This method
+ * is async to match the signature of corresponding method for node.
+ */
+const detectResources = async () => {
+    return Resource_1.Resource.empty();
+};
+exports.detectResources = detectResources;
+
+},{"../../Resource":242}],247:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./default-service-name"), exports);
+__exportStar(require("./detect-resources"), exports);
+
+},{"./default-service-name":245,"./detect-resources":246}],248:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],249:[function(require,module,exports){
+arguments[4][74][0].apply(exports,arguments)
+},{"dup":74}],250:[function(require,module,exports){
+arguments[4][75][0].apply(exports,arguments)
+},{"dup":75}],251:[function(require,module,exports){
+arguments[4][76][0].apply(exports,arguments)
+},{"../../trace/suppress-tracing":277,"../constants":250,"../utils":252,"@opentelemetry/api":33,"dup":76}],252:[function(require,module,exports){
+arguments[4][77][0].apply(exports,arguments)
+},{"./constants":250,"@opentelemetry/api":33,"dup":77}],253:[function(require,module,exports){
+arguments[4][78][0].apply(exports,arguments)
+},{"dup":78}],254:[function(require,module,exports){
+arguments[4][79][0].apply(exports,arguments)
+},{"./logging-error-handler":255,"dup":79}],255:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":80}],256:[function(require,module,exports){
+arguments[4][81][0].apply(exports,arguments)
+},{"../platform":264,"dup":81}],257:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],258:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"./ExportResult":249,"./baggage/propagation/W3CBaggagePropagator":251,"./baggage/utils":252,"./common/attributes":253,"./common/global-error-handler":254,"./common/logging-error-handler":255,"./common/time":256,"./common/types":257,"./platform":264,"./propagation/composite":268,"./trace/IdGenerator":269,"./trace/TraceState":270,"./trace/W3CTraceContextPropagator":271,"./trace/rpc-metadata":272,"./trace/sampler/AlwaysOffSampler":273,"./trace/sampler/AlwaysOnSampler":274,"./trace/sampler/ParentBasedSampler":275,"./trace/sampler/TraceIdRatioBasedSampler":276,"./trace/suppress-tracing":277,"./utils/environment":278,"./utils/merge":280,"./utils/sampling":281,"./utils/url":282,"./utils/wrap":283,"./version":284,"dup":83}],259:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],260:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85}],261:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"../../utils/environment":278,"./globalThis":262,"dup":86}],262:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],263:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88}],264:[function(require,module,exports){
+arguments[4][89][0].apply(exports,arguments)
+},{"./RandomIdGenerator":260,"./environment":261,"./globalThis":262,"./hex-to-base64":263,"./performance":265,"./sdk-info":266,"./timer-util":267,"dup":89}],265:[function(require,module,exports){
+arguments[4][90][0].apply(exports,arguments)
+},{"dup":90}],266:[function(require,module,exports){
+arguments[4][91][0].apply(exports,arguments)
+},{"../../version":284,"@opentelemetry/semantic-conventions":383,"dup":91}],267:[function(require,module,exports){
+arguments[4][92][0].apply(exports,arguments)
+},{"dup":92}],268:[function(require,module,exports){
+arguments[4][93][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":93}],269:[function(require,module,exports){
+arguments[4][94][0].apply(exports,arguments)
+},{"dup":94}],270:[function(require,module,exports){
+arguments[4][95][0].apply(exports,arguments)
+},{"../internal/validators":259,"dup":95}],271:[function(require,module,exports){
+arguments[4][96][0].apply(exports,arguments)
+},{"./TraceState":270,"./suppress-tracing":277,"@opentelemetry/api":33,"dup":96}],272:[function(require,module,exports){
+arguments[4][97][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":97}],273:[function(require,module,exports){
+arguments[4][98][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":98}],274:[function(require,module,exports){
+arguments[4][99][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":99}],275:[function(require,module,exports){
+arguments[4][100][0].apply(exports,arguments)
+},{"../../common/global-error-handler":254,"./AlwaysOffSampler":273,"./AlwaysOnSampler":274,"@opentelemetry/api":33,"dup":100}],276:[function(require,module,exports){
+arguments[4][101][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":101}],277:[function(require,module,exports){
+arguments[4][102][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":102}],278:[function(require,module,exports){
+arguments[4][103][0].apply(exports,arguments)
+},{"./sampling":281,"@opentelemetry/api":33,"dup":103}],279:[function(require,module,exports){
+arguments[4][104][0].apply(exports,arguments)
+},{"dup":104}],280:[function(require,module,exports){
+arguments[4][105][0].apply(exports,arguments)
+},{"./lodash.merge":279,"dup":105}],281:[function(require,module,exports){
+arguments[4][106][0].apply(exports,arguments)
+},{"dup":106}],282:[function(require,module,exports){
+arguments[4][107][0].apply(exports,arguments)
+},{"dup":107}],283:[function(require,module,exports){
+arguments[4][108][0].apply(exports,arguments)
+},{"dup":108}],284:[function(require,module,exports){
+arguments[4][109][0].apply(exports,arguments)
+},{"dup":109}],285:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BasicTracerProvider = exports.ForceFlushState = void 0;
+const api_1 = require("@opentelemetry/api");
+const core_1 = require("@opentelemetry/core");
+const resources_1 = require("@opentelemetry/resources");
+const _1 = require(".");
+const config_1 = require("./config");
+const MultiSpanProcessor_1 = require("./MultiSpanProcessor");
+const NoopSpanProcessor_1 = require("./export/NoopSpanProcessor");
+const platform_1 = require("./platform");
+var ForceFlushState;
+(function (ForceFlushState) {
+    ForceFlushState[ForceFlushState["resolved"] = 0] = "resolved";
+    ForceFlushState[ForceFlushState["timeout"] = 1] = "timeout";
+    ForceFlushState[ForceFlushState["error"] = 2] = "error";
+    ForceFlushState[ForceFlushState["unresolved"] = 3] = "unresolved";
+})(ForceFlushState = exports.ForceFlushState || (exports.ForceFlushState = {}));
+/**
+ * This class represents a basic tracer provider which platform libraries can extend
+ */
+class BasicTracerProvider {
+    constructor(config = {}) {
+        var _a;
+        this._registeredSpanProcessors = [];
+        this._tracers = new Map();
+        const mergedConfig = core_1.merge({}, config_1.DEFAULT_CONFIG, config);
+        this.resource = (_a = mergedConfig.resource) !== null && _a !== void 0 ? _a : resources_1.Resource.empty();
+        this.resource = resources_1.Resource.default().merge(this.resource);
+        this._config = Object.assign({}, mergedConfig, {
+            resource: this.resource,
+        });
+        const defaultExporter = this._buildExporterFromEnv();
+        if (defaultExporter !== undefined) {
+            const batchProcessor = new platform_1.BatchSpanProcessor(defaultExporter);
+            this.activeSpanProcessor = batchProcessor;
+        }
+        else {
+            this.activeSpanProcessor = new NoopSpanProcessor_1.NoopSpanProcessor();
+        }
+    }
+    getTracer(name, version) {
+        const key = `${name}@${version || ''}`;
+        if (!this._tracers.has(key)) {
+            this._tracers.set(key, new _1.Tracer({ name, version }, this._config, this));
+        }
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        return this._tracers.get(key);
+    }
+    /**
+     * Adds a new {@link SpanProcessor} to this tracer.
+     * @param spanProcessor the new SpanProcessor to be added.
+     */
+    addSpanProcessor(spanProcessor) {
+        if (this._registeredSpanProcessors.length === 0) {
+            // since we might have enabled by default a batchProcessor, we disable it
+            // before adding the new one
+            this.activeSpanProcessor
+                .shutdown()
+                .catch(err => api_1.diag.error('Error while trying to shutdown current span processor', err));
+        }
+        this._registeredSpanProcessors.push(spanProcessor);
+        this.activeSpanProcessor = new MultiSpanProcessor_1.MultiSpanProcessor(this._registeredSpanProcessors);
+    }
+    getActiveSpanProcessor() {
+        return this.activeSpanProcessor;
+    }
+    /**
+     * Register this TracerProvider for use with the OpenTelemetry API.
+     * Undefined values may be replaced with defaults, and
+     * null values will be skipped.
+     *
+     * @param config Configuration object for SDK registration
+     */
+    register(config = {}) {
+        api_1.trace.setGlobalTracerProvider(this);
+        if (config.propagator === undefined) {
+            config.propagator = this._buildPropagatorFromEnv();
+        }
+        if (config.contextManager) {
+            api_1.context.setGlobalContextManager(config.contextManager);
+        }
+        if (config.propagator) {
+            api_1.propagation.setGlobalPropagator(config.propagator);
+        }
+    }
+    forceFlush() {
+        const timeout = this._config.forceFlushTimeoutMillis;
+        const promises = this._registeredSpanProcessors.map((spanProcessor) => {
+            return new Promise(resolve => {
+                let state;
+                const timeoutInterval = setTimeout(() => {
+                    resolve(new Error(`Span processor did not completed within timeout period of ${timeout} ms`));
+                    state = ForceFlushState.timeout;
+                }, timeout);
+                spanProcessor
+                    .forceFlush()
+                    .then(() => {
+                    clearTimeout(timeoutInterval);
+                    if (state !== ForceFlushState.timeout) {
+                        state = ForceFlushState.resolved;
+                        resolve(state);
+                    }
+                })
+                    .catch(error => {
+                    clearTimeout(timeoutInterval);
+                    state = ForceFlushState.error;
+                    resolve(error);
+                });
+            });
+        });
+        return new Promise((resolve, reject) => {
+            Promise.all(promises)
+                .then(results => {
+                const errors = results.filter(result => result !== ForceFlushState.resolved);
+                if (errors.length > 0) {
+                    reject(errors);
+                }
+                else {
+                    resolve();
+                }
+            })
+                .catch(error => reject([error]));
+        });
+    }
+    shutdown() {
+        return this.activeSpanProcessor.shutdown();
+    }
+    _getPropagator(name) {
+        var _a;
+        return (_a = BasicTracerProvider._registeredPropagators.get(name)) === null || _a === void 0 ? void 0 : _a();
+    }
+    _getSpanExporter(name) {
+        var _a;
+        return (_a = BasicTracerProvider._registeredExporters.get(name)) === null || _a === void 0 ? void 0 : _a();
+    }
+    _buildPropagatorFromEnv() {
+        // per spec, propagators from env must be deduplicated
+        const uniquePropagatorNames = Array.from(new Set(core_1.getEnv().OTEL_PROPAGATORS));
+        const propagators = uniquePropagatorNames.map(name => {
+            const propagator = this._getPropagator(name);
+            if (!propagator) {
+                api_1.diag.warn(`Propagator "${name}" requested through environment variable is unavailable.`);
+            }
+            return propagator;
+        });
+        const validPropagators = propagators.reduce((list, item) => {
+            if (item) {
+                list.push(item);
+            }
+            return list;
+        }, []);
+        if (validPropagators.length === 0) {
+            return;
+        }
+        else if (uniquePropagatorNames.length === 1) {
+            return validPropagators[0];
+        }
+        else {
+            return new core_1.CompositePropagator({
+                propagators: validPropagators,
+            });
+        }
+    }
+    _buildExporterFromEnv() {
+        const exporterName = core_1.getEnv().OTEL_TRACES_EXPORTER;
+        if (exporterName === 'none')
+            return;
+        const exporter = this._getSpanExporter(exporterName);
+        if (!exporter) {
+            api_1.diag.error(`Exporter "${exporterName}" requested through environment variable is unavailable.`);
+        }
+        return exporter;
+    }
+}
+exports.BasicTracerProvider = BasicTracerProvider;
+BasicTracerProvider._registeredPropagators = new Map([
+    ['tracecontext', () => new core_1.W3CTraceContextPropagator()],
+    ['baggage', () => new core_1.W3CBaggagePropagator()],
+]);
+BasicTracerProvider._registeredExporters = new Map();
+
+},{".":300,"./MultiSpanProcessor":286,"./config":291,"./export/NoopSpanProcessor":296,"./platform":302,"@opentelemetry/api":33,"@opentelemetry/core":314,"@opentelemetry/resources":244}],286:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.MultiSpanProcessor = void 0;
+const core_1 = require("@opentelemetry/core");
+/**
+ * Implementation of the {@link SpanProcessor} that simply forwards all
+ * received events to a list of {@link SpanProcessor}s.
+ */
+class MultiSpanProcessor {
+    constructor(_spanProcessors) {
+        this._spanProcessors = _spanProcessors;
+    }
+    forceFlush() {
+        const promises = [];
+        for (const spanProcessor of this._spanProcessors) {
+            promises.push(spanProcessor.forceFlush());
+        }
+        return new Promise(resolve => {
+            Promise.all(promises)
+                .then(() => {
+                resolve();
+            })
+                .catch(error => {
+                core_1.globalErrorHandler(error || new Error('MultiSpanProcessor: forceFlush failed'));
+                resolve();
+            });
+        });
+    }
+    onStart(span, context) {
+        for (const spanProcessor of this._spanProcessors) {
+            spanProcessor.onStart(span, context);
+        }
+    }
+    onEnd(span) {
+        for (const spanProcessor of this._spanProcessors) {
+            spanProcessor.onEnd(span);
+        }
+    }
+    shutdown() {
+        const promises = [];
+        for (const spanProcessor of this._spanProcessors) {
+            promises.push(spanProcessor.shutdown());
+        }
+        return new Promise((resolve, reject) => {
+            Promise.all(promises).then(() => {
+                resolve();
+            }, reject);
+        });
+    }
+}
+exports.MultiSpanProcessor = MultiSpanProcessor;
+
+},{"@opentelemetry/core":314}],287:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Span = void 0;
+const api = require("@opentelemetry/api");
+const core_1 = require("@opentelemetry/core");
+const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
+const enums_1 = require("./enums");
+/**
+ * This class represents a span.
+ */
+class Span {
+    /** Constructs a new Span instance. */
+    constructor(parentTracer, context, spanName, spanContext, kind, parentSpanId, links = [], startTime = core_1.hrTime()) {
+        this.attributes = {};
+        this.links = [];
+        this.events = [];
+        this.status = {
+            code: api.SpanStatusCode.UNSET,
+        };
+        this.endTime = [0, 0];
+        this._ended = false;
+        this._duration = [-1, -1];
+        this.name = spanName;
+        this._spanContext = spanContext;
+        this.parentSpanId = parentSpanId;
+        this.kind = kind;
+        this.links = links;
+        this.startTime = core_1.timeInputToHrTime(startTime);
+        this.resource = parentTracer.resource;
+        this.instrumentationLibrary = parentTracer.instrumentationLibrary;
+        this._spanLimits = parentTracer.getSpanLimits();
+        this._spanProcessor = parentTracer.getActiveSpanProcessor();
+        this._spanProcessor.onStart(this, context);
+        this._attributeValueLengthLimit = this._spanLimits.attributeValueLengthLimit || 0;
+    }
+    spanContext() {
+        return this._spanContext;
+    }
+    setAttribute(key, value) {
+        if (value == null || this._isSpanEnded())
+            return this;
+        if (key.length === 0) {
+            api.diag.warn(`Invalid attribute key: ${key}`);
+            return this;
+        }
+        if (!core_1.isAttributeValue(value)) {
+            api.diag.warn(`Invalid attribute value set for key: ${key}`);
+            return this;
+        }
+        if (Object.keys(this.attributes).length >=
+            this._spanLimits.attributeCountLimit &&
+            !Object.prototype.hasOwnProperty.call(this.attributes, key)) {
+            return this;
+        }
+        this.attributes[key] = this._truncateToSize(value);
+        return this;
+    }
+    setAttributes(attributes) {
+        for (const [k, v] of Object.entries(attributes)) {
+            this.setAttribute(k, v);
+        }
+        return this;
+    }
+    /**
+     *
+     * @param name Span Name
+     * @param [attributesOrStartTime] Span attributes or start time
+     *     if type is {@type TimeInput} and 3rd param is undefined
+     * @param [startTime] Specified start time for the event
+     */
+    addEvent(name, attributesOrStartTime, startTime) {
+        if (this._isSpanEnded())
+            return this;
+        if (this.events.length >= this._spanLimits.eventCountLimit) {
+            api.diag.warn('Dropping extra events.');
+            this.events.shift();
+        }
+        if (core_1.isTimeInput(attributesOrStartTime)) {
+            if (typeof startTime === 'undefined') {
+                startTime = attributesOrStartTime;
+            }
+            attributesOrStartTime = undefined;
+        }
+        if (typeof startTime === 'undefined') {
+            startTime = core_1.hrTime();
+        }
+        this.events.push({
+            name,
+            attributes: attributesOrStartTime,
+            time: core_1.timeInputToHrTime(startTime),
+        });
+        return this;
+    }
+    setStatus(status) {
+        if (this._isSpanEnded())
+            return this;
+        this.status = status;
+        return this;
+    }
+    updateName(name) {
+        if (this._isSpanEnded())
+            return this;
+        this.name = name;
+        return this;
+    }
+    end(endTime = core_1.hrTime()) {
+        if (this._isSpanEnded()) {
+            api.diag.error('You can only call end() on a span once.');
+            return;
+        }
+        this._ended = true;
+        this.endTime = core_1.timeInputToHrTime(endTime);
+        this._duration = core_1.hrTimeDuration(this.startTime, this.endTime);
+        if (this._duration[0] < 0) {
+            api.diag.warn('Inconsistent start and end time, startTime > endTime', this.startTime, this.endTime);
+        }
+        this._spanProcessor.onEnd(this);
+    }
+    isRecording() {
+        return this._ended === false;
+    }
+    recordException(exception, time = core_1.hrTime()) {
+        const attributes = {};
+        if (typeof exception === 'string') {
+            attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_MESSAGE] = exception;
+        }
+        else if (exception) {
+            if (exception.code) {
+                attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_TYPE] = exception.code.toString();
+            }
+            else if (exception.name) {
+                attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_TYPE] = exception.name;
+            }
+            if (exception.message) {
+                attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_MESSAGE] = exception.message;
+            }
+            if (exception.stack) {
+                attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_STACKTRACE] = exception.stack;
+            }
+        }
+        // these are minimum requirements from spec
+        if (attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_TYPE] ||
+            attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_MESSAGE]) {
+            this.addEvent(enums_1.ExceptionEventName, attributes, time);
+        }
+        else {
+            api.diag.warn(`Failed to record an exception ${exception}`);
+        }
+    }
+    get duration() {
+        return this._duration;
+    }
+    get ended() {
+        return this._ended;
+    }
+    _isSpanEnded() {
+        if (this._ended) {
+            api.diag.warn(`Can not execute the operation on ended Span {traceId: ${this._spanContext.traceId}, spanId: ${this._spanContext.spanId}}`);
+        }
+        return this._ended;
+    }
+    // Utility function to truncate given value within size
+    // for value type of string, will truncate to given limit
+    // for type of non-string, will return same value
+    _truncateToLimitUtil(value, limit) {
+        if (value.length <= limit) {
+            return value;
+        }
+        return value.substr(0, limit);
+    }
+    /**
+     * If the given attribute value is of type string and has more characters than given {@code attributeValueLengthLimit} then
+     * return string with trucated to {@code attributeValueLengthLimit} characters
+     *
+     * If the given attribute value is array of strings then
+     * return new array of strings with each element truncated to {@code attributeValueLengthLimit} characters
+     *
+     * Otherwise return same Attribute {@code value}
+     *
+     * @param value Attribute value
+     * @returns truncated attribute value if required, otherwise same value
+     */
+    _truncateToSize(value) {
+        const limit = this._attributeValueLengthLimit;
+        // Check limit
+        if (limit <= 0) {
+            // Negative values are invalid, so do not truncate
+            api.diag.warn(`Attribute value limit must be positive, got ${limit}`);
+            return value;
+        }
+        // String
+        if (typeof value === 'string') {
+            return this._truncateToLimitUtil(value, limit);
+        }
+        // Array of strings
+        if (Array.isArray(value)) {
+            return value.map(val => typeof val === 'string' ? this._truncateToLimitUtil(val, limit) : val);
+        }
+        // Other types, no need to apply value length limit
+        return value;
+    }
+}
+exports.Span = Span;
+
+},{"./enums":292,"@opentelemetry/api":33,"@opentelemetry/core":314,"@opentelemetry/semantic-conventions":383}],288:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+
+},{}],289:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+
+},{}],290:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Tracer = void 0;
+const api = require("@opentelemetry/api");
+const core_1 = require("@opentelemetry/core");
+const Span_1 = require("./Span");
+const utility_1 = require("./utility");
+/**
+ * This class represents a basic tracer.
+ */
+class Tracer {
+    /**
+     * Constructs a new Tracer instance.
+     */
+    constructor(instrumentationLibrary, config, _tracerProvider) {
+        this._tracerProvider = _tracerProvider;
+        const localConfig = utility_1.mergeConfig(config);
+        this._sampler = localConfig.sampler;
+        this._generalLimits = localConfig.generalLimits;
+        this._spanLimits = localConfig.spanLimits;
+        this._idGenerator = config.idGenerator || new core_1.RandomIdGenerator();
+        this.resource = _tracerProvider.resource;
+        this.instrumentationLibrary = instrumentationLibrary;
+    }
+    /**
+     * Starts a new Span or returns the default NoopSpan based on the sampling
+     * decision.
+     */
+    startSpan(name, options = {}, context = api.context.active()) {
+        var _a, _b;
+        if (core_1.isTracingSuppressed(context)) {
+            api.diag.debug('Instrumentation suppressed, returning Noop Span');
+            return api.trace.wrapSpanContext(api.INVALID_SPAN_CONTEXT);
+        }
+        const parentContext = getParent(options, context);
+        const spanId = this._idGenerator.generateSpanId();
+        let traceId;
+        let traceState;
+        let parentSpanId;
+        if (!parentContext || !api.trace.isSpanContextValid(parentContext)) {
+            // New root span.
+            traceId = this._idGenerator.generateTraceId();
+        }
+        else {
+            // New child span.
+            traceId = parentContext.traceId;
+            traceState = parentContext.traceState;
+            parentSpanId = parentContext.spanId;
+        }
+        const spanKind = (_a = options.kind) !== null && _a !== void 0 ? _a : api.SpanKind.INTERNAL;
+        const links = (_b = options.links) !== null && _b !== void 0 ? _b : [];
+        const attributes = core_1.sanitizeAttributes(options.attributes);
+        // make sampling decision
+        const samplingResult = this._sampler.shouldSample(options.root
+            ? api.trace.setSpanContext(context, api.INVALID_SPAN_CONTEXT)
+            : context, traceId, name, spanKind, attributes, links);
+        const traceFlags = samplingResult.decision === api.SamplingDecision.RECORD_AND_SAMPLED
+            ? api.TraceFlags.SAMPLED
+            : api.TraceFlags.NONE;
+        const spanContext = { traceId, spanId, traceFlags, traceState };
+        if (samplingResult.decision === api.SamplingDecision.NOT_RECORD) {
+            api.diag.debug('Recording is off, propagating context in a non-recording span');
+            return api.trace.wrapSpanContext(spanContext);
+        }
+        const span = new Span_1.Span(this, context, name, spanContext, spanKind, parentSpanId, links, options.startTime);
+        // Set default attributes
+        span.setAttributes(Object.assign(attributes, samplingResult.attributes));
+        return span;
+    }
+    startActiveSpan(name, arg2, arg3, arg4) {
+        let opts;
+        let ctx;
+        let fn;
+        if (arguments.length < 2) {
+            return;
+        }
+        else if (arguments.length === 2) {
+            fn = arg2;
+        }
+        else if (arguments.length === 3) {
+            opts = arg2;
+            fn = arg3;
+        }
+        else {
+            opts = arg2;
+            ctx = arg3;
+            fn = arg4;
+        }
+        const parentContext = ctx !== null && ctx !== void 0 ? ctx : api.context.active();
+        const span = this.startSpan(name, opts, parentContext);
+        const contextWithSpanSet = api.trace.setSpan(parentContext, span);
+        return api.context.with(contextWithSpanSet, fn, undefined, span);
+    }
+    /** Returns the active {@link GeneralLimits}. */
+    getGeneralLimits() {
+        return this._generalLimits;
+    }
+    /** Returns the active {@link SpanLimits}. */
+    getSpanLimits() {
+        return this._spanLimits;
+    }
+    getActiveSpanProcessor() {
+        return this._tracerProvider.getActiveSpanProcessor();
+    }
+}
+exports.Tracer = Tracer;
+/**
+ * Get the parent to assign to a started span. If options.parent is null,
+ * do not assign a parent.
+ *
+ * @param options span options
+ * @param context context to check for parent
+ */
+function getParent(options, context) {
+    if (options.root)
+        return undefined;
+    return api.trace.getSpanContext(context);
+}
+
+},{"./Span":287,"./utility":304,"@opentelemetry/api":33,"@opentelemetry/core":314}],291:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildSamplerFromEnv = exports.DEFAULT_CONFIG = void 0;
+const api_1 = require("@opentelemetry/api");
+const core_1 = require("@opentelemetry/core");
+const env = core_1.getEnv();
+const FALLBACK_OTEL_TRACES_SAMPLER = core_1.TracesSamplerValues.AlwaysOn;
+const DEFAULT_RATIO = 1;
+/**
+ * Default configuration. For fields with primitive values, any user-provided
+ * value will override the corresponding default value. For fields with
+ * non-primitive values (like `spanLimits`), the user-provided value will be
+ * used to extend the default value.
+ */
+exports.DEFAULT_CONFIG = {
+    sampler: buildSamplerFromEnv(env),
+    forceFlushTimeoutMillis: 30000,
+    generalLimits: {
+        attributeValueLengthLimit: core_1.getEnv().OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT,
+        attributeCountLimit: core_1.getEnv().OTEL_ATTRIBUTE_COUNT_LIMIT,
+    },
+    spanLimits: {
+        attributeValueLengthLimit: core_1.getEnv().OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT,
+        attributeCountLimit: core_1.getEnv().OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT,
+        linkCountLimit: core_1.getEnv().OTEL_SPAN_LINK_COUNT_LIMIT,
+        eventCountLimit: core_1.getEnv().OTEL_SPAN_EVENT_COUNT_LIMIT,
+    },
+};
+/**
+ * Based on environment, builds a sampler, complies with specification.
+ * @param environment optional, by default uses getEnv(), but allows passing a value to reuse parsed environment
+ */
+function buildSamplerFromEnv(environment = core_1.getEnv()) {
+    switch (environment.OTEL_TRACES_SAMPLER) {
+        case core_1.TracesSamplerValues.AlwaysOn:
+            return new core_1.AlwaysOnSampler();
+        case core_1.TracesSamplerValues.AlwaysOff:
+            return new core_1.AlwaysOffSampler();
+        case core_1.TracesSamplerValues.ParentBasedAlwaysOn:
+            return new core_1.ParentBasedSampler({
+                root: new core_1.AlwaysOnSampler(),
+            });
+        case core_1.TracesSamplerValues.ParentBasedAlwaysOff:
+            return new core_1.ParentBasedSampler({
+                root: new core_1.AlwaysOffSampler(),
+            });
+        case core_1.TracesSamplerValues.TraceIdRatio:
+            return new core_1.TraceIdRatioBasedSampler(getSamplerProbabilityFromEnv(environment));
+        case core_1.TracesSamplerValues.ParentBasedTraceIdRatio:
+            return new core_1.ParentBasedSampler({
+                root: new core_1.TraceIdRatioBasedSampler(getSamplerProbabilityFromEnv(environment)),
+            });
+        default:
+            api_1.diag.error(`OTEL_TRACES_SAMPLER value "${environment.OTEL_TRACES_SAMPLER} invalid, defaulting to ${FALLBACK_OTEL_TRACES_SAMPLER}".`);
+            return new core_1.AlwaysOnSampler();
+    }
+}
+exports.buildSamplerFromEnv = buildSamplerFromEnv;
+function getSamplerProbabilityFromEnv(environment) {
+    if (environment.OTEL_TRACES_SAMPLER_ARG === undefined ||
+        environment.OTEL_TRACES_SAMPLER_ARG === '') {
+        api_1.diag.error(`OTEL_TRACES_SAMPLER_ARG is blank, defaulting to ${DEFAULT_RATIO}.`);
+        return DEFAULT_RATIO;
+    }
+    const probability = Number(environment.OTEL_TRACES_SAMPLER_ARG);
+    if (isNaN(probability)) {
+        api_1.diag.error(`OTEL_TRACES_SAMPLER_ARG=${environment.OTEL_TRACES_SAMPLER_ARG} was given, but it is invalid, defaulting to ${DEFAULT_RATIO}.`);
+        return DEFAULT_RATIO;
+    }
+    if (probability < 0 || probability > 1) {
+        api_1.diag.error(`OTEL_TRACES_SAMPLER_ARG=${environment.OTEL_TRACES_SAMPLER_ARG} was given, but it is out of range ([0..1]), defaulting to ${DEFAULT_RATIO}.`);
+        return DEFAULT_RATIO;
+    }
+    return probability;
+}
+
+},{"@opentelemetry/api":33,"@opentelemetry/core":314}],292:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ExceptionEventName = void 0;
+// Event name definitions
+exports.ExceptionEventName = 'exception';
+
+},{}],293:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BatchSpanProcessorBase = void 0;
+const api_1 = require("@opentelemetry/api");
+const core_1 = require("@opentelemetry/core");
+/**
+ * Implementation of the {@link SpanProcessor} that batches spans exported by
+ * the SDK then pushes them to the exporter pipeline.
+ */
+class BatchSpanProcessorBase {
+    constructor(_exporter, config) {
+        this._exporter = _exporter;
+        this._finishedSpans = [];
+        this._isShutdown = false;
+        this._shuttingDownPromise = Promise.resolve();
+        const env = core_1.getEnv();
+        this._maxExportBatchSize =
+            typeof (config === null || config === void 0 ? void 0 : config.maxExportBatchSize) === 'number'
+                ? config.maxExportBatchSize
+                : env.OTEL_BSP_MAX_EXPORT_BATCH_SIZE;
+        this._maxQueueSize =
+            typeof (config === null || config === void 0 ? void 0 : config.maxQueueSize) === 'number'
+                ? config.maxQueueSize
+                : env.OTEL_BSP_MAX_QUEUE_SIZE;
+        this._scheduledDelayMillis =
+            typeof (config === null || config === void 0 ? void 0 : config.scheduledDelayMillis) === 'number'
+                ? config.scheduledDelayMillis
+                : env.OTEL_BSP_SCHEDULE_DELAY;
+        this._exportTimeoutMillis =
+            typeof (config === null || config === void 0 ? void 0 : config.exportTimeoutMillis) === 'number'
+                ? config.exportTimeoutMillis
+                : env.OTEL_BSP_EXPORT_TIMEOUT;
+    }
+    forceFlush() {
+        if (this._isShutdown) {
+            return this._shuttingDownPromise;
+        }
+        return this._flushAll();
+    }
+    // does nothing.
+    onStart(_span) { }
+    onEnd(span) {
+        if (this._isShutdown) {
+            return;
+        }
+        if ((span.spanContext().traceFlags & api_1.TraceFlags.SAMPLED) === 0) {
+            return;
+        }
+        this._addToBuffer(span);
+    }
+    shutdown() {
+        if (this._isShutdown) {
+            return this._shuttingDownPromise;
+        }
+        this._isShutdown = true;
+        this._shuttingDownPromise = new Promise((resolve, reject) => {
+            Promise.resolve()
+                .then(() => {
+                return this.onShutdown();
+            })
+                .then(() => {
+                return this._flushAll();
+            })
+                .then(() => {
+                return this._exporter.shutdown();
+            })
+                .then(resolve)
+                .catch(e => {
+                reject(e);
+            });
+        });
+        return this._shuttingDownPromise;
+    }
+    /** Add a span in the buffer. */
+    _addToBuffer(span) {
+        if (this._finishedSpans.length >= this._maxQueueSize) {
+            // limit reached, drop span
+            return;
+        }
+        this._finishedSpans.push(span);
+        this._maybeStartTimer();
+    }
+    /**
+     * Send all spans to the exporter respecting the batch size limit
+     * This function is used only on forceFlush or shutdown,
+     * for all other cases _flush should be used
+     * */
+    _flushAll() {
+        return new Promise((resolve, reject) => {
+            const promises = [];
+            // calculate number of batches
+            const count = Math.ceil(this._finishedSpans.length / this._maxExportBatchSize);
+            for (let i = 0, j = count; i < j; i++) {
+                promises.push(this._flushOneBatch());
+            }
+            Promise.all(promises)
+                .then(() => {
+                resolve();
+            })
+                .catch(reject);
+        });
+    }
+    _flushOneBatch() {
+        this._clearTimer();
+        if (this._finishedSpans.length === 0) {
+            return Promise.resolve();
+        }
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                // don't wait anymore for export, this way the next batch can start
+                reject(new Error('Timeout'));
+            }, this._exportTimeoutMillis);
+            // prevent downstream exporter calls from generating spans
+            api_1.context.with(core_1.suppressTracing(api_1.context.active()), () => {
+                // Reset the finished spans buffer here because the next invocations of the _flush method
+                // could pass the same finished spans to the exporter if the buffer is cleared
+                // outside of the execution of this callback.
+                this._exporter.export(this._finishedSpans.splice(0, this._maxExportBatchSize), result => {
+                    var _a;
+                    clearTimeout(timer);
+                    if (result.code === core_1.ExportResultCode.SUCCESS) {
+                        resolve();
+                    }
+                    else {
+                        reject((_a = result.error) !== null && _a !== void 0 ? _a : new Error('BatchSpanProcessor: span export failed'));
+                    }
+                });
+            });
+        });
+    }
+    _maybeStartTimer() {
+        if (this._timer !== undefined)
+            return;
+        this._timer = setTimeout(() => {
+            this._flushOneBatch()
+                .then(() => {
+                if (this._finishedSpans.length > 0) {
+                    this._clearTimer();
+                    this._maybeStartTimer();
+                }
+            })
+                .catch(e => {
+                core_1.globalErrorHandler(e);
+            });
+        }, this._scheduledDelayMillis);
+        core_1.unrefTimer(this._timer);
+    }
+    _clearTimer() {
+        if (this._timer !== undefined) {
+            clearTimeout(this._timer);
+            this._timer = undefined;
+        }
+    }
+}
+exports.BatchSpanProcessorBase = BatchSpanProcessorBase;
+
+},{"@opentelemetry/api":33,"@opentelemetry/core":314}],294:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ConsoleSpanExporter = void 0;
+const core_1 = require("@opentelemetry/core");
+/**
+ * This is implementation of {@link SpanExporter} that prints spans to the
+ * console. This class can be used for diagnostic purposes.
+ */
+/* eslint-disable no-console */
+class ConsoleSpanExporter {
+    /**
+     * Export spans.
+     * @param spans
+     * @param resultCallback
+     */
+    export(spans, resultCallback) {
+        return this._sendSpans(spans, resultCallback);
+    }
+    /**
+     * Shutdown the exporter.
+     */
+    shutdown() {
+        this._sendSpans([]);
+        return Promise.resolve();
+    }
+    /**
+     * converts span info into more readable format
+     * @param span
+     */
+    _exportInfo(span) {
+        return {
+            traceId: span.spanContext().traceId,
+            parentId: span.parentSpanId,
+            name: span.name,
+            id: span.spanContext().spanId,
+            kind: span.kind,
+            timestamp: core_1.hrTimeToMicroseconds(span.startTime),
+            duration: core_1.hrTimeToMicroseconds(span.duration),
+            attributes: span.attributes,
+            status: span.status,
+            events: span.events,
+        };
+    }
+    /**
+     * Showing spans in console
+     * @param spans
+     * @param done
+     */
+    _sendSpans(spans, done) {
+        for (const span of spans) {
+            console.log(this._exportInfo(span));
+        }
+        if (done) {
+            return done({ code: core_1.ExportResultCode.SUCCESS });
+        }
+    }
+}
+exports.ConsoleSpanExporter = ConsoleSpanExporter;
+
+},{"@opentelemetry/core":314}],295:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.InMemorySpanExporter = void 0;
+const core_1 = require("@opentelemetry/core");
+/**
+ * This class can be used for testing purposes. It stores the exported spans
+ * in a list in memory that can be retrieved using the `getFinishedSpans()`
+ * method.
+ */
+class InMemorySpanExporter {
+    constructor() {
+        this._finishedSpans = [];
+        /**
+         * Indicates if the exporter has been "shutdown."
+         * When false, exported spans will not be stored in-memory.
+         */
+        this._stopped = false;
+    }
+    export(spans, resultCallback) {
+        if (this._stopped)
+            return resultCallback({
+                code: core_1.ExportResultCode.FAILED,
+                error: new Error('Exporter has been stopped'),
+            });
+        this._finishedSpans.push(...spans);
+        setTimeout(() => resultCallback({ code: core_1.ExportResultCode.SUCCESS }), 0);
+    }
+    shutdown() {
+        this._stopped = true;
+        this._finishedSpans = [];
+        return Promise.resolve();
+    }
+    reset() {
+        this._finishedSpans = [];
+    }
+    getFinishedSpans() {
+        return this._finishedSpans;
+    }
+}
+exports.InMemorySpanExporter = InMemorySpanExporter;
+
+},{"@opentelemetry/core":314}],296:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.NoopSpanProcessor = void 0;
+/** No-op implementation of SpanProcessor */
+class NoopSpanProcessor {
+    onStart(_span, _context) { }
+    onEnd(_span) { }
+    shutdown() {
+        return Promise.resolve();
+    }
+    forceFlush() {
+        return Promise.resolve();
+    }
+}
+exports.NoopSpanProcessor = NoopSpanProcessor;
+
+},{}],297:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+
+},{}],298:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SimpleSpanProcessor = void 0;
+const api_1 = require("@opentelemetry/api");
+const core_1 = require("@opentelemetry/core");
+/**
+ * An implementation of the {@link SpanProcessor} that converts the {@link Span}
+ * to {@link ReadableSpan} and passes it to the configured exporter.
+ *
+ * Only spans that are sampled are converted.
+ */
+class SimpleSpanProcessor {
+    constructor(_exporter) {
+        this._exporter = _exporter;
+        this._isShutdown = false;
+        this._shuttingDownPromise = Promise.resolve();
+    }
+    forceFlush() {
+        // do nothing as all spans are being exported without waiting
+        return Promise.resolve();
+    }
+    // does nothing.
+    onStart(_span) { }
+    onEnd(span) {
+        if (this._isShutdown) {
+            return;
+        }
+        if ((span.spanContext().traceFlags & api_1.TraceFlags.SAMPLED) === 0) {
+            return;
+        }
+        // prevent downstream exporter calls from generating spans
+        api_1.context.with(core_1.suppressTracing(api_1.context.active()), () => {
+            this._exporter.export([span], result => {
+                var _a;
+                if (result.code !== core_1.ExportResultCode.SUCCESS) {
+                    core_1.globalErrorHandler((_a = result.error) !== null && _a !== void 0 ? _a : new Error(`SimpleSpanProcessor: span export failed (status ${result})`));
+                }
+            });
+        });
+    }
+    shutdown() {
+        if (this._isShutdown) {
+            return this._shuttingDownPromise;
+        }
+        this._isShutdown = true;
+        this._shuttingDownPromise = new Promise((resolve, reject) => {
+            Promise.resolve()
+                .then(() => {
+                return this._exporter.shutdown();
+            })
+                .then(resolve)
+                .catch(e => {
+                reject(e);
+            });
+        });
+        return this._shuttingDownPromise;
+    }
+}
+exports.SimpleSpanProcessor = SimpleSpanProcessor;
+
+},{"@opentelemetry/api":33,"@opentelemetry/core":314}],299:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+
+},{}],300:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./Tracer"), exports);
+__exportStar(require("./BasicTracerProvider"), exports);
+__exportStar(require("./platform"), exports);
+__exportStar(require("./export/ConsoleSpanExporter"), exports);
+__exportStar(require("./export/InMemorySpanExporter"), exports);
+__exportStar(require("./export/ReadableSpan"), exports);
+__exportStar(require("./export/SimpleSpanProcessor"), exports);
+__exportStar(require("./export/SpanExporter"), exports);
+__exportStar(require("./export/NoopSpanProcessor"), exports);
+__exportStar(require("./Span"), exports);
+__exportStar(require("./SpanProcessor"), exports);
+__exportStar(require("./TimedEvent"), exports);
+__exportStar(require("./types"), exports);
+
+},{"./BasicTracerProvider":285,"./Span":287,"./SpanProcessor":288,"./TimedEvent":289,"./Tracer":290,"./export/ConsoleSpanExporter":294,"./export/InMemorySpanExporter":295,"./export/NoopSpanProcessor":296,"./export/ReadableSpan":297,"./export/SimpleSpanProcessor":298,"./export/SpanExporter":299,"./platform":302,"./types":303}],301:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BatchSpanProcessor = void 0;
+const BatchSpanProcessorBase_1 = require("../../../export/BatchSpanProcessorBase");
+class BatchSpanProcessor extends BatchSpanProcessorBase_1.BatchSpanProcessorBase {
+    constructor(_exporter, config) {
+        super(_exporter, config);
+        this.onInit(config);
+    }
+    onInit(config) {
+        if ((config === null || config === void 0 ? void 0 : config.disableAutoFlushOnDocumentHide) !== true && document != null) {
+            this._visibilityChangeListener = () => {
+                if (document.visibilityState === 'hidden') {
+                    void this.forceFlush();
+                }
+            };
+            this._pageHideListener = () => {
+                void this.forceFlush();
+            };
+            document.addEventListener('visibilitychange', this._visibilityChangeListener);
+            // use 'pagehide' event as a fallback for Safari; see https://bugs.webkit.org/show_bug.cgi?id=116769
+            document.addEventListener('pagehide', this._pageHideListener);
+        }
+    }
+    onShutdown() {
+        if (this._visibilityChangeListener) {
+            document.removeEventListener('visibilitychange', this._visibilityChangeListener);
+        }
+        if (this._pageHideListener) {
+            document.removeEventListener('pagehide', this._pageHideListener);
+        }
+    }
+}
+exports.BatchSpanProcessor = BatchSpanProcessor;
+
+},{"../../../export/BatchSpanProcessorBase":293}],302:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./export/BatchSpanProcessor"), exports);
+
+},{"./export/BatchSpanProcessor":301}],303:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],304:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.mergeConfig = void 0;
+const core_1 = require("@opentelemetry/core");
+const config_1 = require("./config");
+/**
+ * Function to merge Default configuration (as specified in './config') with
+ * user provided configurations.
+ */
+function mergeConfig(userConfig) {
+    const perInstanceDefaults = {
+        sampler: config_1.buildSamplerFromEnv(),
+    };
+    const target = Object.assign({}, config_1.DEFAULT_CONFIG, perInstanceDefaults, userConfig);
+    target.generalLimits = Object.assign({}, config_1.DEFAULT_CONFIG.generalLimits, userConfig.generalLimits || {});
+    target.spanLimits = Object.assign({}, config_1.DEFAULT_CONFIG.spanLimits, userConfig.spanLimits || {});
+    /**
+     * When span attribute count limit is not defined, but general attribute count limit is defined
+     * Then, span attribute count limit will be same as general one
+     */
+    if (target.spanLimits.attributeCountLimit === core_1.DEFAULT_ATTRIBUTE_COUNT_LIMIT && target.generalLimits.attributeCountLimit !== core_1.DEFAULT_ATTRIBUTE_COUNT_LIMIT) {
+        target.spanLimits.attributeCountLimit = target.generalLimits.attributeCountLimit;
+    }
+    /**
+     * When span attribute value length limit is not defined, but general attribute value length limit is defined
+     * Then, span attribute value length limit will be same as general one
+     */
+    if (target.spanLimits.attributeValueLengthLimit === core_1.DEFAULT_ATTRIBUTE_VALUE_LENGTH_LIMIT && target.generalLimits.attributeValueLengthLimit !== core_1.DEFAULT_ATTRIBUTE_VALUE_LENGTH_LIMIT) {
+        target.spanLimits.attributeValueLengthLimit = target.generalLimits.attributeValueLengthLimit;
+    }
+    return target;
+}
+exports.mergeConfig = mergeConfig;
+
+},{"./config":291,"@opentelemetry/core":314}],305:[function(require,module,exports){
+arguments[4][74][0].apply(exports,arguments)
+},{"dup":74}],306:[function(require,module,exports){
+arguments[4][75][0].apply(exports,arguments)
+},{"dup":75}],307:[function(require,module,exports){
+arguments[4][76][0].apply(exports,arguments)
+},{"../../trace/suppress-tracing":333,"../constants":306,"../utils":308,"@opentelemetry/api":33,"dup":76}],308:[function(require,module,exports){
+arguments[4][77][0].apply(exports,arguments)
+},{"./constants":306,"@opentelemetry/api":33,"dup":77}],309:[function(require,module,exports){
+arguments[4][78][0].apply(exports,arguments)
+},{"dup":78}],310:[function(require,module,exports){
+arguments[4][79][0].apply(exports,arguments)
+},{"./logging-error-handler":311,"dup":79}],311:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":80}],312:[function(require,module,exports){
+arguments[4][81][0].apply(exports,arguments)
+},{"../platform":320,"dup":81}],313:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],314:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"./ExportResult":305,"./baggage/propagation/W3CBaggagePropagator":307,"./baggage/utils":308,"./common/attributes":309,"./common/global-error-handler":310,"./common/logging-error-handler":311,"./common/time":312,"./common/types":313,"./platform":320,"./propagation/composite":324,"./trace/IdGenerator":325,"./trace/TraceState":326,"./trace/W3CTraceContextPropagator":327,"./trace/rpc-metadata":328,"./trace/sampler/AlwaysOffSampler":329,"./trace/sampler/AlwaysOnSampler":330,"./trace/sampler/ParentBasedSampler":331,"./trace/sampler/TraceIdRatioBasedSampler":332,"./trace/suppress-tracing":333,"./utils/environment":334,"./utils/merge":336,"./utils/sampling":337,"./utils/url":338,"./utils/wrap":339,"./version":340,"dup":83}],315:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],316:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85}],317:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"../../utils/environment":334,"./globalThis":318,"dup":86}],318:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],319:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88}],320:[function(require,module,exports){
+arguments[4][89][0].apply(exports,arguments)
+},{"./RandomIdGenerator":316,"./environment":317,"./globalThis":318,"./hex-to-base64":319,"./performance":321,"./sdk-info":322,"./timer-util":323,"dup":89}],321:[function(require,module,exports){
+arguments[4][90][0].apply(exports,arguments)
+},{"dup":90}],322:[function(require,module,exports){
+arguments[4][91][0].apply(exports,arguments)
+},{"../../version":340,"@opentelemetry/semantic-conventions":383,"dup":91}],323:[function(require,module,exports){
+arguments[4][92][0].apply(exports,arguments)
+},{"dup":92}],324:[function(require,module,exports){
+arguments[4][93][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":93}],325:[function(require,module,exports){
+arguments[4][94][0].apply(exports,arguments)
+},{"dup":94}],326:[function(require,module,exports){
+arguments[4][95][0].apply(exports,arguments)
+},{"../internal/validators":315,"dup":95}],327:[function(require,module,exports){
+arguments[4][96][0].apply(exports,arguments)
+},{"./TraceState":326,"./suppress-tracing":333,"@opentelemetry/api":33,"dup":96}],328:[function(require,module,exports){
+arguments[4][97][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":97}],329:[function(require,module,exports){
+arguments[4][98][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":98}],330:[function(require,module,exports){
+arguments[4][99][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":99}],331:[function(require,module,exports){
+arguments[4][100][0].apply(exports,arguments)
+},{"../../common/global-error-handler":310,"./AlwaysOffSampler":329,"./AlwaysOnSampler":330,"@opentelemetry/api":33,"dup":100}],332:[function(require,module,exports){
+arguments[4][101][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":101}],333:[function(require,module,exports){
+arguments[4][102][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":102}],334:[function(require,module,exports){
+arguments[4][103][0].apply(exports,arguments)
+},{"./sampling":337,"@opentelemetry/api":33,"dup":103}],335:[function(require,module,exports){
+arguments[4][104][0].apply(exports,arguments)
+},{"dup":104}],336:[function(require,module,exports){
+arguments[4][105][0].apply(exports,arguments)
+},{"./lodash.merge":335,"dup":105}],337:[function(require,module,exports){
+arguments[4][106][0].apply(exports,arguments)
+},{"dup":106}],338:[function(require,module,exports){
+arguments[4][107][0].apply(exports,arguments)
+},{"dup":107}],339:[function(require,module,exports){
+arguments[4][108][0].apply(exports,arguments)
+},{"dup":108}],340:[function(require,module,exports){
+arguments[4][109][0].apply(exports,arguments)
+},{"dup":109}],341:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.StackContextManager = void 0;
+const api_1 = require("@opentelemetry/api");
+/**
+ * Stack Context Manager for managing the state in web
+ * it doesn't fully support the async calls though
+ */
+class StackContextManager {
+    constructor() {
+        /**
+         * whether the context manager is enabled or not
+         */
+        this._enabled = false;
+        /**
+         * Keeps the reference to current context
+         */
+        this._currentContext = api_1.ROOT_CONTEXT;
+    }
+    /**
+     *
+     * @param context
+     * @param target Function to be executed within the context
+     */
+    _bindFunction(context = api_1.ROOT_CONTEXT, target) {
+        const manager = this;
+        const contextWrapper = function (...args) {
+            return manager.with(context, () => target.apply(this, args));
+        };
+        Object.defineProperty(contextWrapper, 'length', {
+            enumerable: false,
+            configurable: true,
+            writable: false,
+            value: target.length,
+        });
+        return contextWrapper;
+    }
+    /**
+     * Returns the active context
+     */
+    active() {
+        return this._currentContext;
+    }
+    /**
+     * Binds a the certain context or the active one to the target function and then returns the target
+     * @param context A context (span) to be bind to target
+     * @param target a function or event emitter. When target or one of its callbacks is called,
+     *  the provided context will be used as the active context for the duration of the call.
+     */
+    bind(context, target) {
+        // if no specific context to propagate is given, we use the current one
+        if (context === undefined) {
+            context = this.active();
+        }
+        if (typeof target === 'function') {
+            return this._bindFunction(context, target);
+        }
+        return target;
+    }
+    /**
+     * Disable the context manager (clears the current context)
+     */
+    disable() {
+        this._currentContext = api_1.ROOT_CONTEXT;
+        this._enabled = false;
+        return this;
+    }
+    /**
+     * Enables the context manager and creates a default(root) context
+     */
+    enable() {
+        if (this._enabled) {
+            return this;
+        }
+        this._enabled = true;
+        this._currentContext = api_1.ROOT_CONTEXT;
+        return this;
+    }
+    /**
+     * Calls the callback function [fn] with the provided [context]. If [context] is undefined then it will use the window.
+     * The context will be set as active
+     * @param context
+     * @param fn Callback function
+     * @param thisArg optional receiver to be used for calling fn
+     * @param args optional arguments forwarded to fn
+     */
+    with(context, fn, thisArg, ...args) {
+        const previousContext = this._currentContext;
+        this._currentContext = context || api_1.ROOT_CONTEXT;
+        try {
+            return fn.call(thisArg, ...args);
+        }
+        finally {
+            this._currentContext = previousContext;
+        }
+    }
+}
+exports.StackContextManager = StackContextManager;
+
+},{"@opentelemetry/api":33}],342:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.WebTracerProvider = void 0;
+const sdk_trace_base_1 = require("@opentelemetry/sdk-trace-base");
+const StackContextManager_1 = require("./StackContextManager");
+/**
+ * This class represents a web tracer with {@link StackContextManager}
+ */
+class WebTracerProvider extends sdk_trace_base_1.BasicTracerProvider {
+    /**
+     * Constructs a new Tracer instance.
+     * @param config Web Tracer config
+     */
+    constructor(config = {}) {
+        super(config);
+        if (config.contextManager) {
+            throw ('contextManager should be defined in register method not in' +
+                ' constructor');
+        }
+        if (config.propagator) {
+            throw 'propagator should be defined in register method not in constructor';
+        }
+    }
+    /**
+     * Register this TracerProvider for use with the OpenTelemetry API.
+     * Undefined values may be replaced with defaults, and
+     * null values will be skipped.
+     *
+     * @param config Configuration object for SDK registration
+     */
+    register(config = {}) {
+        if (config.contextManager === undefined) {
+            config.contextManager = new StackContextManager_1.StackContextManager();
+        }
+        if (config.contextManager) {
+            config.contextManager.enable();
+        }
+        super.register(config);
+    }
+}
+exports.WebTracerProvider = WebTracerProvider;
+
+},{"./StackContextManager":341,"@opentelemetry/sdk-trace-base":300}],343:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PerformanceTimingNames = void 0;
+var PerformanceTimingNames;
+(function (PerformanceTimingNames) {
+    PerformanceTimingNames["CONNECT_END"] = "connectEnd";
+    PerformanceTimingNames["CONNECT_START"] = "connectStart";
+    PerformanceTimingNames["DECODED_BODY_SIZE"] = "decodedBodySize";
+    PerformanceTimingNames["DOM_COMPLETE"] = "domComplete";
+    PerformanceTimingNames["DOM_CONTENT_LOADED_EVENT_END"] = "domContentLoadedEventEnd";
+    PerformanceTimingNames["DOM_CONTENT_LOADED_EVENT_START"] = "domContentLoadedEventStart";
+    PerformanceTimingNames["DOM_INTERACTIVE"] = "domInteractive";
+    PerformanceTimingNames["DOMAIN_LOOKUP_END"] = "domainLookupEnd";
+    PerformanceTimingNames["DOMAIN_LOOKUP_START"] = "domainLookupStart";
+    PerformanceTimingNames["ENCODED_BODY_SIZE"] = "encodedBodySize";
+    PerformanceTimingNames["FETCH_START"] = "fetchStart";
+    PerformanceTimingNames["LOAD_EVENT_END"] = "loadEventEnd";
+    PerformanceTimingNames["LOAD_EVENT_START"] = "loadEventStart";
+    PerformanceTimingNames["NAVIGATION_START"] = "navigationStart";
+    PerformanceTimingNames["REDIRECT_END"] = "redirectEnd";
+    PerformanceTimingNames["REDIRECT_START"] = "redirectStart";
+    PerformanceTimingNames["REQUEST_START"] = "requestStart";
+    PerformanceTimingNames["RESPONSE_END"] = "responseEnd";
+    PerformanceTimingNames["RESPONSE_START"] = "responseStart";
+    PerformanceTimingNames["SECURE_CONNECTION_START"] = "secureConnectionStart";
+    PerformanceTimingNames["UNLOAD_EVENT_END"] = "unloadEventEnd";
+    PerformanceTimingNames["UNLOAD_EVENT_START"] = "unloadEventStart";
+})(PerformanceTimingNames = exports.PerformanceTimingNames || (exports.PerformanceTimingNames = {}));
+
+},{}],344:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./WebTracerProvider"), exports);
+__exportStar(require("./StackContextManager"), exports);
+__exportStar(require("./enums/PerformanceTimingNames"), exports);
+__exportStar(require("./types"), exports);
+__exportStar(require("./utils"), exports);
+
+},{"./StackContextManager":341,"./WebTracerProvider":342,"./enums/PerformanceTimingNames":343,"./types":345,"./utils":346}],345:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+const PerformanceTimingNames_1 = require("./enums/PerformanceTimingNames");
+
+},{"./enums/PerformanceTimingNames":343}],346:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.shouldPropagateTraceHeaders = exports.getElementXPath = exports.parseUrl = exports.getResource = exports.sortResources = exports.addSpanNetworkEvents = exports.addSpanNetworkEvent = exports.hasKey = exports.getUrlNormalizingAnchor = void 0;
+const PerformanceTimingNames_1 = require("./enums/PerformanceTimingNames");
+const core_1 = require("@opentelemetry/core");
+const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
+// Used to normalize relative URLs
+let a;
+function getUrlNormalizingAnchor() {
+    if (!a) {
+        a = document.createElement('a');
+    }
+    return a;
+}
+exports.getUrlNormalizingAnchor = getUrlNormalizingAnchor;
+/**
+ * Helper function to be able to use enum as typed key in type and in interface when using forEach
+ * @param obj
+ * @param key
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function hasKey(obj, key) {
+    return key in obj;
+}
+exports.hasKey = hasKey;
+/**
+ * Helper function for starting an event on span based on {@link PerformanceEntries}
+ * @param span
+ * @param performanceName name of performance entry for time start
+ * @param entries
+ */
+function addSpanNetworkEvent(span, performanceName, entries) {
+    if (hasKey(entries, performanceName) &&
+        typeof entries[performanceName] === 'number') {
+        span.addEvent(performanceName, entries[performanceName]);
+        return span;
+    }
+    return undefined;
+}
+exports.addSpanNetworkEvent = addSpanNetworkEvent;
+/**
+ * Helper function for adding network events
+ * @param span
+ * @param resource
+ */
+function addSpanNetworkEvents(span, resource) {
+    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START, resource);
+    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.DOMAIN_LOOKUP_START, resource);
+    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.DOMAIN_LOOKUP_END, resource);
+    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.CONNECT_START, resource);
+    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.SECURE_CONNECTION_START, resource);
+    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.CONNECT_END, resource);
+    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.REQUEST_START, resource);
+    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_START, resource);
+    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_END, resource);
+    const encodedLength = resource[PerformanceTimingNames_1.PerformanceTimingNames.ENCODED_BODY_SIZE];
+    if (encodedLength !== undefined) {
+        span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_RESPONSE_CONTENT_LENGTH, encodedLength);
+    }
+    const decodedLength = resource[PerformanceTimingNames_1.PerformanceTimingNames.DECODED_BODY_SIZE];
+    // Spec: Not set if transport encoding not used (in which case encoded and decoded sizes match)
+    if (decodedLength !== undefined && encodedLength !== decodedLength) {
+        span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_RESPONSE_CONTENT_LENGTH_UNCOMPRESSED, decodedLength);
+    }
+}
+exports.addSpanNetworkEvents = addSpanNetworkEvents;
+/**
+ * sort resources by startTime
+ * @param filteredResources
+ */
+function sortResources(filteredResources) {
+    return filteredResources.slice().sort((a, b) => {
+        const valueA = a[PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START];
+        const valueB = b[PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START];
+        if (valueA > valueB) {
+            return 1;
+        }
+        else if (valueA < valueB) {
+            return -1;
+        }
+        return 0;
+    });
+}
+exports.sortResources = sortResources;
+/**
+ * Get closest performance resource ignoring the resources that have been
+ * already used.
+ * @param spanUrl
+ * @param startTimeHR
+ * @param endTimeHR
+ * @param resources
+ * @param ignoredResources
+ * @param initiatorType
+ */
+function getResource(spanUrl, startTimeHR, endTimeHR, resources, ignoredResources = new WeakSet(), initiatorType) {
+    // de-relativize the URL before usage (does no harm to absolute URLs)
+    const urlNormalizingAnchor = getUrlNormalizingAnchor();
+    urlNormalizingAnchor.href = spanUrl;
+    spanUrl = urlNormalizingAnchor.href;
+    const filteredResources = filterResourcesForSpan(spanUrl, startTimeHR, endTimeHR, resources, ignoredResources, initiatorType);
+    if (filteredResources.length === 0) {
+        return {
+            mainRequest: undefined,
+        };
+    }
+    if (filteredResources.length === 1) {
+        return {
+            mainRequest: filteredResources[0],
+        };
+    }
+    const sorted = sortResources(filteredResources);
+    const parsedSpanUrl = parseUrl(spanUrl);
+    if (parsedSpanUrl.origin !== window.location.origin && sorted.length > 1) {
+        let corsPreFlightRequest = sorted[0];
+        let mainRequest = findMainRequest(sorted, corsPreFlightRequest[PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_END], endTimeHR);
+        const responseEnd = corsPreFlightRequest[PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_END];
+        const fetchStart = mainRequest[PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START];
+        // no corsPreFlightRequest
+        if (fetchStart < responseEnd) {
+            mainRequest = corsPreFlightRequest;
+            corsPreFlightRequest = undefined;
+        }
+        return {
+            corsPreFlightRequest,
+            mainRequest,
+        };
+    }
+    else {
+        return {
+            mainRequest: filteredResources[0],
+        };
+    }
+}
+exports.getResource = getResource;
+/**
+ * Will find the main request skipping the cors pre flight requests
+ * @param resources
+ * @param corsPreFlightRequestEndTime
+ * @param spanEndTimeHR
+ */
+function findMainRequest(resources, corsPreFlightRequestEndTime, spanEndTimeHR) {
+    const spanEndTime = core_1.hrTimeToNanoseconds(spanEndTimeHR);
+    const minTime = core_1.hrTimeToNanoseconds(core_1.timeInputToHrTime(corsPreFlightRequestEndTime));
+    let mainRequest = resources[1];
+    let bestGap;
+    const length = resources.length;
+    for (let i = 1; i < length; i++) {
+        const resource = resources[i];
+        const resourceStartTime = core_1.hrTimeToNanoseconds(core_1.timeInputToHrTime(resource[PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START]));
+        const resourceEndTime = core_1.hrTimeToNanoseconds(core_1.timeInputToHrTime(resource[PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_END]));
+        const currentGap = spanEndTime - resourceEndTime;
+        if (resourceStartTime >= minTime && (!bestGap || currentGap < bestGap)) {
+            bestGap = currentGap;
+            mainRequest = resource;
+        }
+    }
+    return mainRequest;
+}
+/**
+ * Filter all resources that has started and finished according to span start time and end time.
+ *     It will return the closest resource to a start time
+ * @param spanUrl
+ * @param startTimeHR
+ * @param endTimeHR
+ * @param resources
+ * @param ignoredResources
+ */
+function filterResourcesForSpan(spanUrl, startTimeHR, endTimeHR, resources, ignoredResources, initiatorType) {
+    const startTime = core_1.hrTimeToNanoseconds(startTimeHR);
+    const endTime = core_1.hrTimeToNanoseconds(endTimeHR);
+    let filteredResources = resources.filter(resource => {
+        const resourceStartTime = core_1.hrTimeToNanoseconds(core_1.timeInputToHrTime(resource[PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START]));
+        const resourceEndTime = core_1.hrTimeToNanoseconds(core_1.timeInputToHrTime(resource[PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_END]));
+        return (resource.initiatorType.toLowerCase() ===
+            (initiatorType || 'xmlhttprequest') &&
+            resource.name === spanUrl &&
+            resourceStartTime >= startTime &&
+            resourceEndTime <= endTime);
+    });
+    if (filteredResources.length > 0) {
+        filteredResources = filteredResources.filter(resource => {
+            return !ignoredResources.has(resource);
+        });
+    }
+    return filteredResources;
+}
+/**
+ * Parses url using anchor element
+ * @param url
+ */
+function parseUrl(url) {
+    const a = document.createElement('a');
+    a.href = url;
+    return a;
+}
+exports.parseUrl = parseUrl;
+/**
+ * Get element XPath
+ * @param target - target element
+ * @param optimised - when id attribute of element is present the xpath can be
+ * simplified to contain id
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getElementXPath(target, optimised) {
+    if (target.nodeType === Node.DOCUMENT_NODE) {
+        return '/';
+    }
+    const targetValue = getNodeValue(target, optimised);
+    if (optimised && targetValue.indexOf('@id') > 0) {
+        return targetValue;
+    }
+    let xpath = '';
+    if (target.parentNode) {
+        xpath += getElementXPath(target.parentNode, false);
+    }
+    xpath += targetValue;
+    return xpath;
+}
+exports.getElementXPath = getElementXPath;
+/**
+ * get node index within the siblings
+ * @param target
+ */
+function getNodeIndex(target) {
+    if (!target.parentNode) {
+        return 0;
+    }
+    const allowedTypes = [target.nodeType];
+    if (target.nodeType === Node.CDATA_SECTION_NODE) {
+        allowedTypes.push(Node.TEXT_NODE);
+    }
+    let elements = Array.from(target.parentNode.childNodes);
+    elements = elements.filter((element) => {
+        const localName = element.localName;
+        return (allowedTypes.indexOf(element.nodeType) >= 0 &&
+            localName === target.localName);
+    });
+    if (elements.length >= 1) {
+        return elements.indexOf(target) + 1; // xpath starts from 1
+    }
+    // if there are no other similar child xpath doesn't need index
+    return 0;
+}
+/**
+ * get node value for xpath
+ * @param target
+ * @param optimised
+ */
+function getNodeValue(target, optimised) {
+    const nodeType = target.nodeType;
+    const index = getNodeIndex(target);
+    let nodeValue = '';
+    if (nodeType === Node.ELEMENT_NODE) {
+        const id = target.getAttribute('id');
+        if (optimised && id) {
+            return `//*[@id="${id}"]`;
+        }
+        nodeValue = target.localName;
+    }
+    else if (nodeType === Node.TEXT_NODE ||
+        nodeType === Node.CDATA_SECTION_NODE) {
+        nodeValue = 'text()';
+    }
+    else if (nodeType === Node.COMMENT_NODE) {
+        nodeValue = 'comment()';
+    }
+    else {
+        return '';
+    }
+    // if index is 1 it can be omitted in xpath
+    if (nodeValue && index > 1) {
+        return `/${nodeValue}[${index}]`;
+    }
+    return `/${nodeValue}`;
+}
+/**
+ * Checks if trace headers should be propagated
+ * @param spanUrl
+ * @private
+ */
+function shouldPropagateTraceHeaders(spanUrl, propagateTraceHeaderCorsUrls) {
+    let propagateTraceHeaderUrls = propagateTraceHeaderCorsUrls || [];
+    if (typeof propagateTraceHeaderUrls === 'string' ||
+        propagateTraceHeaderUrls instanceof RegExp) {
+        propagateTraceHeaderUrls = [propagateTraceHeaderUrls];
+    }
+    const parsedSpanUrl = parseUrl(spanUrl);
+    if (parsedSpanUrl.origin === window.location.origin) {
+        return true;
+    }
+    else {
+        return propagateTraceHeaderUrls.some(propagateTraceHeaderUrl => core_1.urlMatches(spanUrl, propagateTraceHeaderUrl));
+    }
+}
+exports.shouldPropagateTraceHeaders = shouldPropagateTraceHeaders;
+
+},{"./enums/PerformanceTimingNames":343,"@opentelemetry/core":356,"@opentelemetry/semantic-conventions":383}],347:[function(require,module,exports){
+arguments[4][74][0].apply(exports,arguments)
+},{"dup":74}],348:[function(require,module,exports){
+arguments[4][75][0].apply(exports,arguments)
+},{"dup":75}],349:[function(require,module,exports){
+arguments[4][76][0].apply(exports,arguments)
+},{"../../trace/suppress-tracing":375,"../constants":348,"../utils":350,"@opentelemetry/api":33,"dup":76}],350:[function(require,module,exports){
+arguments[4][77][0].apply(exports,arguments)
+},{"./constants":348,"@opentelemetry/api":33,"dup":77}],351:[function(require,module,exports){
+arguments[4][78][0].apply(exports,arguments)
+},{"dup":78}],352:[function(require,module,exports){
+arguments[4][79][0].apply(exports,arguments)
+},{"./logging-error-handler":353,"dup":79}],353:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":80}],354:[function(require,module,exports){
+arguments[4][81][0].apply(exports,arguments)
+},{"../platform":362,"dup":81}],355:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],356:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"./ExportResult":347,"./baggage/propagation/W3CBaggagePropagator":349,"./baggage/utils":350,"./common/attributes":351,"./common/global-error-handler":352,"./common/logging-error-handler":353,"./common/time":354,"./common/types":355,"./platform":362,"./propagation/composite":366,"./trace/IdGenerator":367,"./trace/TraceState":368,"./trace/W3CTraceContextPropagator":369,"./trace/rpc-metadata":370,"./trace/sampler/AlwaysOffSampler":371,"./trace/sampler/AlwaysOnSampler":372,"./trace/sampler/ParentBasedSampler":373,"./trace/sampler/TraceIdRatioBasedSampler":374,"./trace/suppress-tracing":375,"./utils/environment":376,"./utils/merge":378,"./utils/sampling":379,"./utils/url":380,"./utils/wrap":381,"./version":382,"dup":83}],357:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],358:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85}],359:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"../../utils/environment":376,"./globalThis":360,"dup":86}],360:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],361:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88}],362:[function(require,module,exports){
+arguments[4][89][0].apply(exports,arguments)
+},{"./RandomIdGenerator":358,"./environment":359,"./globalThis":360,"./hex-to-base64":361,"./performance":363,"./sdk-info":364,"./timer-util":365,"dup":89}],363:[function(require,module,exports){
+arguments[4][90][0].apply(exports,arguments)
+},{"dup":90}],364:[function(require,module,exports){
+arguments[4][91][0].apply(exports,arguments)
+},{"../../version":382,"@opentelemetry/semantic-conventions":383,"dup":91}],365:[function(require,module,exports){
+arguments[4][92][0].apply(exports,arguments)
+},{"dup":92}],366:[function(require,module,exports){
+arguments[4][93][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":93}],367:[function(require,module,exports){
+arguments[4][94][0].apply(exports,arguments)
+},{"dup":94}],368:[function(require,module,exports){
+arguments[4][95][0].apply(exports,arguments)
+},{"../internal/validators":357,"dup":95}],369:[function(require,module,exports){
+arguments[4][96][0].apply(exports,arguments)
+},{"./TraceState":368,"./suppress-tracing":375,"@opentelemetry/api":33,"dup":96}],370:[function(require,module,exports){
+arguments[4][97][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":97}],371:[function(require,module,exports){
+arguments[4][98][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":98}],372:[function(require,module,exports){
+arguments[4][99][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":99}],373:[function(require,module,exports){
+arguments[4][100][0].apply(exports,arguments)
+},{"../../common/global-error-handler":352,"./AlwaysOffSampler":371,"./AlwaysOnSampler":372,"@opentelemetry/api":33,"dup":100}],374:[function(require,module,exports){
+arguments[4][101][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":101}],375:[function(require,module,exports){
+arguments[4][102][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":102}],376:[function(require,module,exports){
+arguments[4][103][0].apply(exports,arguments)
+},{"./sampling":379,"@opentelemetry/api":33,"dup":103}],377:[function(require,module,exports){
+arguments[4][104][0].apply(exports,arguments)
+},{"dup":104}],378:[function(require,module,exports){
+arguments[4][105][0].apply(exports,arguments)
+},{"./lodash.merge":377,"dup":105}],379:[function(require,module,exports){
+arguments[4][106][0].apply(exports,arguments)
+},{"dup":106}],380:[function(require,module,exports){
+arguments[4][107][0].apply(exports,arguments)
+},{"dup":107}],381:[function(require,module,exports){
+arguments[4][108][0].apply(exports,arguments)
+},{"dup":108}],382:[function(require,module,exports){
+arguments[4][109][0].apply(exports,arguments)
+},{"dup":109}],383:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9068,7 +10061,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./trace"), exports);
 __exportStar(require("./resource"), exports);
 
-},{"./resource":255,"./trace":257}],254:[function(require,module,exports){
+},{"./resource":385,"./trace":387}],384:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9582,7 +10575,7 @@ exports.TelemetrySdkLanguageValues = {
     WEBJS: 'webjs',
 };
 
-},{}],255:[function(require,module,exports){
+},{}],385:[function(require,module,exports){
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -9612,7 +10605,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 __exportStar(require("./SemanticResourceAttributes"), exports);
 
-},{"./SemanticResourceAttributes":254}],256:[function(require,module,exports){
+},{"./SemanticResourceAttributes":384}],386:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -10500,7 +11493,7 @@ exports.MessageTypeValues = {
     RECEIVED: 'RECEIVED',
 };
 
-},{}],257:[function(require,module,exports){
+},{}],387:[function(require,module,exports){
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -10530,4264 +11523,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 __exportStar(require("./SemanticAttributes"), exports);
 
-},{"./SemanticAttributes":256}],258:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AttributeNames = void 0;
-var AttributeNames;
-(function (AttributeNames) {
-    AttributeNames["COMPONENT"] = "component";
-    AttributeNames["EVENT_TYPE"] = "event_type";
-    AttributeNames["TARGET_ELEMENT"] = "target_element";
-    AttributeNames["TARGET_XPATH"] = "target_xpath";
-    AttributeNames["HTTP_URL"] = "http.url";
-    // NOT ON OFFICIAL SPEC
-    AttributeNames["HTTP_USER_AGENT"] = "http.user_agent";
-})(AttributeNames = exports.AttributeNames || (exports.AttributeNames = {}));
-
-},{}],259:[function(require,module,exports){
-arguments[4][213][0].apply(exports,arguments)
-},{"./instrumentation":260,"dup":213}],260:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserInteractionInstrumentation = void 0;
-const instrumentation_1 = require("@opentelemetry/instrumentation");
-const api = require("@opentelemetry/api");
-const core_1 = require("@opentelemetry/core");
-const sdk_trace_web_1 = require("@opentelemetry/sdk-trace-web");
-const AttributeNames_1 = require("./enums/AttributeNames");
-const version_1 = require("./version");
-const ZONE_CONTEXT_KEY = 'OT_ZONE_CONTEXT';
-const EVENT_NAVIGATION_NAME = 'Navigation:';
-const DEFAULT_EVENT_NAMES = ['click'];
-function defaultShouldPreventSpanCreation() {
-    return false;
-}
-/**
- * This class represents a UserInteraction plugin for auto instrumentation.
- * If zone.js is available then it patches the zone otherwise it patches
- * addEventListener of HTMLElement
- */
-class UserInteractionInstrumentation extends instrumentation_1.InstrumentationBase {
-    constructor(config) {
-        var _a;
-        super('@opentelemetry/instrumentation-user-interaction', version_1.VERSION, config);
-        this.component = 'user-interaction';
-        this.version = version_1.VERSION;
-        this.moduleName = this.component;
-        this._spansData = new WeakMap();
-        // for addEventListener/removeEventListener state
-        this._wrappedListeners = new WeakMap();
-        // for event bubbling
-        this._eventsSpanMap = new WeakMap();
-        this._eventNames = new Set((_a = config === null || config === void 0 ? void 0 : config.eventNames) !== null && _a !== void 0 ? _a : DEFAULT_EVENT_NAMES);
-        this._shouldPreventSpanCreation =
-            typeof (config === null || config === void 0 ? void 0 : config.shouldPreventSpanCreation) === 'function'
-                ? config.shouldPreventSpanCreation
-                : defaultShouldPreventSpanCreation;
-    }
-    init() { }
-    /**
-     * This will check if last task was timeout and will save the time to
-     * fix the user interaction when nothing happens
-     * This timeout comes from xhr plugin which is needed to collect information
-     * about last xhr main request from observer
-     * @param task
-     * @param span
-     */
-    _checkForTimeout(task, span) {
-        const spanData = this._spansData.get(span);
-        if (spanData) {
-            if (task.source === 'setTimeout') {
-                spanData.hrTimeLastTimeout = core_1.hrTime();
-            }
-            else if (task.source !== 'Promise.then' &&
-                task.source !== 'setTimeout') {
-                spanData.hrTimeLastTimeout = undefined;
-            }
-        }
-    }
-    /**
-     * Controls whether or not to create a span, based on the event type.
-     */
-    _allowEventName(eventName) {
-        return this._eventNames.has(eventName);
-    }
-    /**
-     * Creates a new span
-     * @param element
-     * @param eventName
-     */
-    _createSpan(element, eventName, parentSpan) {
-        if (!(element instanceof HTMLElement)) {
-            return undefined;
-        }
-        if (!element.getAttribute) {
-            return undefined;
-        }
-        if (element.hasAttribute('disabled')) {
-            return undefined;
-        }
-        if (!this._allowEventName(eventName)) {
-            return undefined;
-        }
-        const xpath = sdk_trace_web_1.getElementXPath(element, true);
-        try {
-            const span = this.tracer.startSpan(eventName, {
-                attributes: {
-                    [AttributeNames_1.AttributeNames.COMPONENT]: this.component,
-                    [AttributeNames_1.AttributeNames.EVENT_TYPE]: eventName,
-                    [AttributeNames_1.AttributeNames.TARGET_ELEMENT]: element.tagName,
-                    [AttributeNames_1.AttributeNames.TARGET_XPATH]: xpath,
-                    [AttributeNames_1.AttributeNames.HTTP_URL]: window.location.href,
-                    [AttributeNames_1.AttributeNames.HTTP_USER_AGENT]: navigator.userAgent,
-                },
-            }, parentSpan
-                ? api.trace.setSpan(api.context.active(), parentSpan)
-                : undefined);
-            if (this._shouldPreventSpanCreation(eventName, element, span) === true) {
-                return undefined;
-            }
-            this._spansData.set(span, {
-                taskCount: 0,
-            });
-            return span;
-        }
-        catch (e) {
-            api.diag.error(this.component, e);
-        }
-        return undefined;
-    }
-    /**
-     * Decrement number of tasks that left in zone,
-     * This is needed to be able to end span when no more tasks left
-     * @param span
-     */
-    _decrementTask(span) {
-        const spanData = this._spansData.get(span);
-        if (spanData) {
-            spanData.taskCount--;
-            if (spanData.taskCount === 0) {
-                this._tryToEndSpan(span, spanData.hrTimeLastTimeout);
-            }
-        }
-    }
-    /**
-     * Return the current span
-     * @param zone
-     * @private
-     */
-    _getCurrentSpan(zone) {
-        const context = zone.get(ZONE_CONTEXT_KEY);
-        if (context) {
-            return api.trace.getSpan(context);
-        }
-        return context;
-    }
-    /**
-     * Increment number of tasks that are run within the same zone.
-     *     This is needed to be able to end span when no more tasks left
-     * @param span
-     */
-    _incrementTask(span) {
-        const spanData = this._spansData.get(span);
-        if (spanData) {
-            spanData.taskCount++;
-        }
-    }
-    /**
-     * Returns true iff we should use the patched callback; false if it's already been patched
-     */
-    addPatchedListener(on, type, listener, wrappedListener) {
-        let listener2Type = this._wrappedListeners.get(listener);
-        if (!listener2Type) {
-            listener2Type = new Map();
-            this._wrappedListeners.set(listener, listener2Type);
-        }
-        let element2patched = listener2Type.get(type);
-        if (!element2patched) {
-            element2patched = new Map();
-            listener2Type.set(type, element2patched);
-        }
-        if (element2patched.has(on)) {
-            return false;
-        }
-        element2patched.set(on, wrappedListener);
-        return true;
-    }
-    /**
-     * Returns the patched version of the callback (or undefined)
-     */
-    removePatchedListener(on, type, listener) {
-        const listener2Type = this._wrappedListeners.get(listener);
-        if (!listener2Type) {
-            return undefined;
-        }
-        const element2patched = listener2Type.get(type);
-        if (!element2patched) {
-            return undefined;
-        }
-        const patched = element2patched.get(on);
-        if (patched) {
-            element2patched.delete(on);
-            if (element2patched.size === 0) {
-                listener2Type.delete(type);
-                if (listener2Type.size === 0) {
-                    this._wrappedListeners.delete(listener);
-                }
-            }
-        }
-        return patched;
-    }
-    // utility method to deal with the Function|EventListener nature of addEventListener
-    _invokeListener(listener, target, args) {
-        if (typeof listener === 'function') {
-            return listener.apply(target, args);
-        }
-        else {
-            return listener.handleEvent(args[0]);
-        }
-    }
-    /**
-     * This patches the addEventListener of HTMLElement to be able to
-     * auto instrument the click events
-     * This is done when zone is not available
-     */
-    _patchAddEventListener() {
-        const plugin = this;
-        return (original) => {
-            return function addEventListenerPatched(type, listener, useCapture) {
-                // Forward calls with listener = null
-                if (!listener) {
-                    return original.call(this, type, listener, useCapture);
-                }
-                const once = typeof useCapture === 'object' && useCapture.once;
-                const patchedListener = function (...args) {
-                    let parentSpan;
-                    const event = args[0];
-                    const target = event === null || event === void 0 ? void 0 : event.target;
-                    if (event) {
-                        parentSpan = plugin._eventsSpanMap.get(event);
-                    }
-                    if (once) {
-                        plugin.removePatchedListener(this, type, listener);
-                    }
-                    const span = plugin._createSpan(target, type, parentSpan);
-                    if (span) {
-                        if (event) {
-                            plugin._eventsSpanMap.set(event, span);
-                        }
-                        return api.context.with(api.trace.setSpan(api.context.active(), span), () => {
-                            const result = plugin._invokeListener(listener, this, args);
-                            // no zone so end span immediately
-                            span.end();
-                            return result;
-                        });
-                    }
-                    else {
-                        return plugin._invokeListener(listener, this, args);
-                    }
-                };
-                if (plugin.addPatchedListener(this, type, listener, patchedListener)) {
-                    return original.call(this, type, patchedListener, useCapture);
-                }
-            };
-        };
-    }
-    /**
-     * This patches the removeEventListener of HTMLElement to handle the fact that
-     * we patched the original callbacks
-     * This is done when zone is not available
-     */
-    _patchRemoveEventListener() {
-        const plugin = this;
-        return (original) => {
-            return function removeEventListenerPatched(type, listener, useCapture) {
-                const wrappedListener = plugin.removePatchedListener(this, type, listener);
-                if (wrappedListener) {
-                    return original.call(this, type, wrappedListener, useCapture);
-                }
-                else {
-                    return original.call(this, type, listener, useCapture);
-                }
-            };
-        };
-    }
-    /**
-     * Most browser provide event listener api via EventTarget in prototype chain.
-     * Exception to this is IE 11 which has it on the prototypes closest to EventTarget:
-     *
-     * * - has addEventListener in IE
-     * ** - has addEventListener in all other browsers
-     * ! - missing in IE
-     *
-     * HTMLElement -> Element -> Node * -> EventTarget **! -> Object
-     * Document -> Node * -> EventTarget **! -> Object
-     * Window * -> WindowProperties ! -> EventTarget **! -> Object
-     */
-    _getPatchableEventTargets() {
-        return window.EventTarget
-            ? [EventTarget.prototype]
-            : [Node.prototype, Window.prototype];
-    }
-    /**
-     * Patches the history api
-     */
-    _patchHistoryApi() {
-        this._unpatchHistoryApi();
-        this._wrap(history, 'replaceState', this._patchHistoryMethod());
-        this._wrap(history, 'pushState', this._patchHistoryMethod());
-        this._wrap(history, 'back', this._patchHistoryMethod());
-        this._wrap(history, 'forward', this._patchHistoryMethod());
-        this._wrap(history, 'go', this._patchHistoryMethod());
-    }
-    /**
-     * Patches the certain history api method
-     */
-    _patchHistoryMethod() {
-        const plugin = this;
-        return (original) => {
-            return function patchHistoryMethod(...args) {
-                const url = `${location.pathname}${location.hash}${location.search}`;
-                const result = original.apply(this, args);
-                const urlAfter = `${location.pathname}${location.hash}${location.search}`;
-                if (url !== urlAfter) {
-                    plugin._updateInteractionName(urlAfter);
-                }
-                return result;
-            };
-        };
-    }
-    /**
-     * unpatch the history api methods
-     */
-    _unpatchHistoryApi() {
-        if (instrumentation_1.isWrapped(history.replaceState))
-            this._unwrap(history, 'replaceState');
-        if (instrumentation_1.isWrapped(history.pushState))
-            this._unwrap(history, 'pushState');
-        if (instrumentation_1.isWrapped(history.back))
-            this._unwrap(history, 'back');
-        if (instrumentation_1.isWrapped(history.forward))
-            this._unwrap(history, 'forward');
-        if (instrumentation_1.isWrapped(history.go))
-            this._unwrap(history, 'go');
-    }
-    /**
-     * Updates interaction span name
-     * @param url
-     */
-    _updateInteractionName(url) {
-        const span = api.trace.getSpan(api.context.active());
-        if (span && typeof span.updateName === 'function') {
-            span.updateName(`${EVENT_NAVIGATION_NAME} ${url}`);
-        }
-    }
-    /**
-     * Patches zone cancel task - this is done to be able to correctly
-     * decrement the number of remaining tasks
-     */
-    _patchZoneCancelTask() {
-        const plugin = this;
-        return (original) => {
-            return function patchCancelTask(task) {
-                const currentZone = Zone.current;
-                const currentSpan = plugin._getCurrentSpan(currentZone);
-                if (currentSpan && plugin._shouldCountTask(task, currentZone)) {
-                    plugin._decrementTask(currentSpan);
-                }
-                return original.call(this, task);
-            };
-        };
-    }
-    /**
-     * Patches zone schedule task - this is done to be able to correctly
-     * increment the number of tasks running within current zone but also to
-     * save time in case of timeout running from xhr plugin when waiting for
-     * main request from PerformanceResourceTiming
-     */
-    _patchZoneScheduleTask() {
-        const plugin = this;
-        return (original) => {
-            return function patchScheduleTask(task) {
-                const currentZone = Zone.current;
-                const currentSpan = plugin._getCurrentSpan(currentZone);
-                if (currentSpan && plugin._shouldCountTask(task, currentZone)) {
-                    plugin._incrementTask(currentSpan);
-                    plugin._checkForTimeout(task, currentSpan);
-                }
-                return original.call(this, task);
-            };
-        };
-    }
-    /**
-     * Patches zone run task - this is done to be able to create a span when
-     * user interaction starts
-     * @private
-     */
-    _patchZoneRunTask() {
-        const plugin = this;
-        return (original) => {
-            return function patchRunTask(task, applyThis, applyArgs) {
-                const event = Array.isArray(applyArgs) && applyArgs[0] instanceof Event
-                    ? applyArgs[0]
-                    : undefined;
-                const target = event === null || event === void 0 ? void 0 : event.target;
-                let span;
-                const activeZone = this;
-                if (target) {
-                    span = plugin._createSpan(target, task.eventName);
-                    if (span) {
-                        plugin._incrementTask(span);
-                        return activeZone.run(() => {
-                            try {
-                                return api.context.with(api.trace.setSpan(api.context.active(), span), () => {
-                                    const currentZone = Zone.current;
-                                    task._zone = currentZone;
-                                    return original.call(currentZone, task, applyThis, applyArgs);
-                                });
-                            }
-                            finally {
-                                plugin._decrementTask(span);
-                            }
-                        });
-                    }
-                }
-                else {
-                    span = plugin._getCurrentSpan(activeZone);
-                }
-                try {
-                    return original.call(activeZone, task, applyThis, applyArgs);
-                }
-                finally {
-                    if (span && plugin._shouldCountTask(task, activeZone)) {
-                        plugin._decrementTask(span);
-                    }
-                }
-            };
-        };
-    }
-    /**
-     * Decides if task should be counted.
-     * @param task
-     * @param currentZone
-     * @private
-     */
-    _shouldCountTask(task, currentZone) {
-        if (task._zone) {
-            currentZone = task._zone;
-        }
-        if (!currentZone || !task.data || task.data.isPeriodic) {
-            return false;
-        }
-        const currentSpan = this._getCurrentSpan(currentZone);
-        if (!currentSpan) {
-            return false;
-        }
-        if (!this._spansData.get(currentSpan)) {
-            return false;
-        }
-        return task.type === 'macroTask' || task.type === 'microTask';
-    }
-    /**
-     * Will try to end span when such span still exists.
-     * @param span
-     * @param endTime
-     * @private
-     */
-    _tryToEndSpan(span, endTime) {
-        if (span) {
-            const spanData = this._spansData.get(span);
-            if (spanData) {
-                span.end(endTime);
-                this._spansData.delete(span);
-            }
-        }
-    }
-    /**
-     * implements enable function
-     */
-    enable() {
-        const ZoneWithPrototype = this.getZoneWithPrototype();
-        api.diag.debug('applying patch to', this.moduleName, this.version, 'zone:', !!ZoneWithPrototype);
-        if (ZoneWithPrototype) {
-            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.runTask)) {
-                this._unwrap(ZoneWithPrototype.prototype, 'runTask');
-                api.diag.debug('removing previous patch from method runTask');
-            }
-            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.scheduleTask)) {
-                this._unwrap(ZoneWithPrototype.prototype, 'scheduleTask');
-                api.diag.debug('removing previous patch from method scheduleTask');
-            }
-            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.cancelTask)) {
-                this._unwrap(ZoneWithPrototype.prototype, 'cancelTask');
-                api.diag.debug('removing previous patch from method cancelTask');
-            }
-            this._zonePatched = true;
-            this._wrap(ZoneWithPrototype.prototype, 'runTask', this._patchZoneRunTask());
-            this._wrap(ZoneWithPrototype.prototype, 'scheduleTask', this._patchZoneScheduleTask());
-            this._wrap(ZoneWithPrototype.prototype, 'cancelTask', this._patchZoneCancelTask());
-        }
-        else {
-            this._zonePatched = false;
-            const targets = this._getPatchableEventTargets();
-            targets.forEach(target => {
-                if (instrumentation_1.isWrapped(target.addEventListener)) {
-                    this._unwrap(target, 'addEventListener');
-                    api.diag.debug('removing previous patch from method addEventListener');
-                }
-                if (instrumentation_1.isWrapped(target.removeEventListener)) {
-                    this._unwrap(target, 'removeEventListener');
-                    api.diag.debug('removing previous patch from method removeEventListener');
-                }
-                this._wrap(target, 'addEventListener', this._patchAddEventListener());
-                this._wrap(target, 'removeEventListener', this._patchRemoveEventListener());
-            });
-        }
-        this._patchHistoryApi();
-    }
-    /**
-     * implements unpatch function
-     */
-    disable() {
-        const ZoneWithPrototype = this.getZoneWithPrototype();
-        api.diag.debug('removing patch from', this.moduleName, this.version, 'zone:', !!ZoneWithPrototype);
-        if (ZoneWithPrototype && this._zonePatched) {
-            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.runTask)) {
-                this._unwrap(ZoneWithPrototype.prototype, 'runTask');
-            }
-            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.scheduleTask)) {
-                this._unwrap(ZoneWithPrototype.prototype, 'scheduleTask');
-            }
-            if (instrumentation_1.isWrapped(ZoneWithPrototype.prototype.cancelTask)) {
-                this._unwrap(ZoneWithPrototype.prototype, 'cancelTask');
-            }
-        }
-        else {
-            const targets = this._getPatchableEventTargets();
-            targets.forEach(target => {
-                if (instrumentation_1.isWrapped(target.addEventListener)) {
-                    this._unwrap(target, 'addEventListener');
-                }
-                if (instrumentation_1.isWrapped(target.removeEventListener)) {
-                    this._unwrap(target, 'removeEventListener');
-                }
-            });
-        }
-        this._unpatchHistoryApi();
-    }
-    /**
-     * returns Zone
-     */
-    getZoneWithPrototype() {
-        const _window = window;
-        return _window.Zone;
-    }
-}
-exports.UserInteractionInstrumentation = UserInteractionInstrumentation;
-
-},{"./enums/AttributeNames":258,"./version":261,"@opentelemetry/api":33,"@opentelemetry/core":271,"@opentelemetry/instrumentation":351,"@opentelemetry/sdk-trace-web":436}],261:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.VERSION = void 0;
-// this is autogenerated file, see scripts/version-update.js
-exports.VERSION = '0.28.1';
-
-},{}],262:[function(require,module,exports){
-arguments[4][71][0].apply(exports,arguments)
-},{"dup":71}],263:[function(require,module,exports){
-arguments[4][218][0].apply(exports,arguments)
-},{"dup":218}],264:[function(require,module,exports){
-arguments[4][219][0].apply(exports,arguments)
-},{"../../trace/suppress-tracing":290,"../constants":263,"../utils":265,"@opentelemetry/api":33,"dup":219}],265:[function(require,module,exports){
-arguments[4][220][0].apply(exports,arguments)
-},{"./constants":263,"@opentelemetry/api":33,"dup":220}],266:[function(require,module,exports){
-arguments[4][221][0].apply(exports,arguments)
-},{"dup":221}],267:[function(require,module,exports){
-arguments[4][222][0].apply(exports,arguments)
-},{"./logging-error-handler":268,"dup":222}],268:[function(require,module,exports){
-arguments[4][223][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":223}],269:[function(require,module,exports){
-arguments[4][224][0].apply(exports,arguments)
-},{"../platform":277,"dup":224}],270:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],271:[function(require,module,exports){
-arguments[4][226][0].apply(exports,arguments)
-},{"./ExportResult":262,"./baggage/propagation/W3CBaggagePropagator":264,"./baggage/utils":265,"./common/attributes":266,"./common/global-error-handler":267,"./common/logging-error-handler":268,"./common/time":269,"./common/types":270,"./platform":277,"./propagation/composite":281,"./trace/IdGenerator":282,"./trace/TraceState":283,"./trace/W3CTraceContextPropagator":284,"./trace/rpc-metadata":285,"./trace/sampler/AlwaysOffSampler":286,"./trace/sampler/AlwaysOnSampler":287,"./trace/sampler/ParentBasedSampler":288,"./trace/sampler/TraceIdRatioBasedSampler":289,"./trace/suppress-tracing":290,"./utils/environment":291,"./utils/merge":293,"./utils/sampling":294,"./utils/url":295,"./utils/wrap":296,"./version":297,"dup":226}],272:[function(require,module,exports){
-arguments[4][85][0].apply(exports,arguments)
-},{"dup":85}],273:[function(require,module,exports){
-arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],274:[function(require,module,exports){
-arguments[4][229][0].apply(exports,arguments)
-},{"../../utils/environment":291,"./globalThis":275,"dup":229}],275:[function(require,module,exports){
-arguments[4][230][0].apply(exports,arguments)
-},{"dup":230}],276:[function(require,module,exports){
-arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],277:[function(require,module,exports){
-arguments[4][232][0].apply(exports,arguments)
-},{"./RandomIdGenerator":273,"./environment":274,"./globalThis":275,"./hex-to-base64":276,"./performance":278,"./sdk-info":279,"./timer-util":280,"dup":232}],278:[function(require,module,exports){
-arguments[4][92][0].apply(exports,arguments)
-},{"dup":92}],279:[function(require,module,exports){
-arguments[4][234][0].apply(exports,arguments)
-},{"../../version":297,"@opentelemetry/semantic-conventions":298,"dup":234}],280:[function(require,module,exports){
-arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],281:[function(require,module,exports){
-arguments[4][236][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":236}],282:[function(require,module,exports){
-arguments[4][95][0].apply(exports,arguments)
-},{"dup":95}],283:[function(require,module,exports){
-arguments[4][97][0].apply(exports,arguments)
-},{"../internal/validators":272,"dup":97}],284:[function(require,module,exports){
-arguments[4][239][0].apply(exports,arguments)
-},{"./TraceState":283,"./suppress-tracing":290,"@opentelemetry/api":33,"dup":239}],285:[function(require,module,exports){
-arguments[4][240][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":240}],286:[function(require,module,exports){
-arguments[4][98][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":98}],287:[function(require,module,exports){
-arguments[4][99][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":99}],288:[function(require,module,exports){
-arguments[4][243][0].apply(exports,arguments)
-},{"../../common/global-error-handler":267,"./AlwaysOffSampler":286,"./AlwaysOnSampler":287,"@opentelemetry/api":33,"dup":243}],289:[function(require,module,exports){
-arguments[4][244][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":244}],290:[function(require,module,exports){
-arguments[4][245][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":245}],291:[function(require,module,exports){
-arguments[4][246][0].apply(exports,arguments)
-},{"./sampling":294,"@opentelemetry/api":33,"dup":246}],292:[function(require,module,exports){
-arguments[4][247][0].apply(exports,arguments)
-},{"dup":247}],293:[function(require,module,exports){
-arguments[4][248][0].apply(exports,arguments)
-},{"./lodash.merge":292,"dup":248}],294:[function(require,module,exports){
-arguments[4][249][0].apply(exports,arguments)
-},{"dup":249}],295:[function(require,module,exports){
-arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],296:[function(require,module,exports){
-arguments[4][105][0].apply(exports,arguments)
-},{"dup":105}],297:[function(require,module,exports){
-arguments[4][252][0].apply(exports,arguments)
-},{"dup":252}],298:[function(require,module,exports){
-arguments[4][253][0].apply(exports,arguments)
-},{"./resource":300,"./trace":302,"dup":253}],299:[function(require,module,exports){
-arguments[4][254][0].apply(exports,arguments)
-},{"dup":254}],300:[function(require,module,exports){
-arguments[4][255][0].apply(exports,arguments)
-},{"./SemanticResourceAttributes":299,"dup":255}],301:[function(require,module,exports){
-arguments[4][256][0].apply(exports,arguments)
-},{"dup":256}],302:[function(require,module,exports){
-arguments[4][257][0].apply(exports,arguments)
-},{"./SemanticAttributes":301,"dup":257}],303:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AttributeNames = void 0;
-/**
- * https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/trace/semantic_conventions/http.md
- */
-var AttributeNames;
-(function (AttributeNames) {
-    AttributeNames["HTTP_STATUS_TEXT"] = "http.status_text";
-})(AttributeNames = exports.AttributeNames || (exports.AttributeNames = {}));
-
-},{}],304:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EventNames = void 0;
-var EventNames;
-(function (EventNames) {
-    EventNames["METHOD_OPEN"] = "open";
-    EventNames["METHOD_SEND"] = "send";
-    EventNames["EVENT_ABORT"] = "abort";
-    EventNames["EVENT_ERROR"] = "error";
-    EventNames["EVENT_LOAD"] = "loaded";
-    EventNames["EVENT_TIMEOUT"] = "timeout";
-})(EventNames = exports.EventNames || (exports.EventNames = {}));
-
-},{}],305:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./xhr"), exports);
-
-},{"./xhr":307}],306:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.VERSION = void 0;
-// this is autogenerated file, see scripts/version-update.js
-exports.VERSION = '0.27.0';
-
-},{}],307:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.XMLHttpRequestInstrumentation = void 0;
-const api = require("@opentelemetry/api");
-const instrumentation_1 = require("@opentelemetry/instrumentation");
-const core_1 = require("@opentelemetry/core");
-const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
-const sdk_trace_web_1 = require("@opentelemetry/sdk-trace-web");
-const EventNames_1 = require("./enums/EventNames");
-const version_1 = require("./version");
-const AttributeNames_1 = require("./enums/AttributeNames");
-// how long to wait for observer to collect information about resources
-// this is needed as event "load" is called before observer
-// hard to say how long it should really wait, seems like 300ms is
-// safe enough
-const OBSERVER_WAIT_TIME_MS = 300;
-/**
- * This class represents a XMLHttpRequest plugin for auto instrumentation
- */
-class XMLHttpRequestInstrumentation extends instrumentation_1.InstrumentationBase {
-    constructor(config) {
-        super('@opentelemetry/instrumentation-xml-http-request', version_1.VERSION, config);
-        this.component = 'xml-http-request';
-        this.version = version_1.VERSION;
-        this.moduleName = this.component;
-        this._tasksCount = 0;
-        this._xhrMem = new WeakMap();
-        this._usedResources = new WeakSet();
-    }
-    init() { }
-    _getConfig() {
-        return this._config;
-    }
-    /**
-     * Adds custom headers to XMLHttpRequest
-     * @param xhr
-     * @param span
-     * @private
-     */
-    _addHeaders(xhr, spanUrl) {
-        if (!sdk_trace_web_1.shouldPropagateTraceHeaders(spanUrl, this._getConfig().propagateTraceHeaderCorsUrls)) {
-            const headers = {};
-            api.propagation.inject(api.context.active(), headers);
-            if (Object.keys(headers).length > 0) {
-                this._diag.debug('headers inject skipped due to CORS policy');
-            }
-            return;
-        }
-        const headers = {};
-        api.propagation.inject(api.context.active(), headers);
-        Object.keys(headers).forEach(key => {
-            xhr.setRequestHeader(key, String(headers[key]));
-        });
-    }
-    /**
-     * Add cors pre flight child span
-     * @param span
-     * @param corsPreFlightRequest
-     * @private
-     */
-    _addChildSpan(span, corsPreFlightRequest) {
-        api.context.with(api.trace.setSpan(api.context.active(), span), () => {
-            const childSpan = this.tracer.startSpan('CORS Preflight', {
-                startTime: corsPreFlightRequest[sdk_trace_web_1.PerformanceTimingNames.FETCH_START],
-            });
-            sdk_trace_web_1.addSpanNetworkEvents(childSpan, corsPreFlightRequest);
-            childSpan.end(corsPreFlightRequest[sdk_trace_web_1.PerformanceTimingNames.RESPONSE_END]);
-        });
-    }
-    /**
-     * Add attributes when span is going to end
-     * @param span
-     * @param xhr
-     * @param spanUrl
-     * @private
-     */
-    _addFinalSpanAttributes(span, xhrMem, spanUrl) {
-        if (typeof spanUrl === 'string') {
-            const parsedUrl = sdk_trace_web_1.parseUrl(spanUrl);
-            if (xhrMem.status !== undefined) {
-                span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_STATUS_CODE, xhrMem.status);
-            }
-            if (xhrMem.statusText !== undefined) {
-                span.setAttribute(AttributeNames_1.AttributeNames.HTTP_STATUS_TEXT, xhrMem.statusText);
-            }
-            span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_HOST, parsedUrl.host);
-            span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_SCHEME, parsedUrl.protocol.replace(':', ''));
-            // @TODO do we want to collect this or it will be collected earlier once only or
-            //    maybe when parent span is not available ?
-            span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_USER_AGENT, navigator.userAgent);
-        }
-    }
-    _applyAttributesAfterXHR(span, xhr) {
-        const applyCustomAttributesOnSpan = this._getConfig()
-            .applyCustomAttributesOnSpan;
-        if (typeof applyCustomAttributesOnSpan === 'function') {
-            instrumentation_1.safeExecuteInTheMiddle(() => applyCustomAttributesOnSpan(span, xhr), error => {
-                if (!error) {
-                    return;
-                }
-                this._diag.error('applyCustomAttributesOnSpan', error);
-            }, true);
-        }
-    }
-    /**
-     * will collect information about all resources created
-     * between "send" and "end" with additional waiting for main resource
-     * @param xhr
-     * @param spanUrl
-     * @private
-     */
-    _addResourceObserver(xhr, spanUrl) {
-        const xhrMem = this._xhrMem.get(xhr);
-        if (!xhrMem ||
-            typeof window.PerformanceObserver === 'undefined' ||
-            typeof window.PerformanceResourceTiming === 'undefined') {
-            return;
-        }
-        xhrMem.createdResources = {
-            observer: new PerformanceObserver(list => {
-                const entries = list.getEntries();
-                const urlNormalizingAnchor = sdk_trace_web_1.getUrlNormalizingAnchor();
-                urlNormalizingAnchor.href = spanUrl;
-                entries.forEach(entry => {
-                    if (entry.initiatorType === 'xmlhttprequest' &&
-                        entry.name === urlNormalizingAnchor.href) {
-                        if (xhrMem.createdResources) {
-                            xhrMem.createdResources.entries.push(entry);
-                        }
-                    }
-                });
-            }),
-            entries: [],
-        };
-        xhrMem.createdResources.observer.observe({
-            entryTypes: ['resource'],
-        });
-    }
-    /**
-     * Clears the resource timings and all resources assigned with spans
-     *     when {@link XMLHttpRequestInstrumentationConfig.clearTimingResources} is
-     *     set to true (default false)
-     * @private
-     */
-    _clearResources() {
-        if (this._tasksCount === 0 && this._getConfig().clearTimingResources) {
-            core_1.otperformance.clearResourceTimings();
-            this._xhrMem = new WeakMap();
-            this._usedResources = new WeakSet();
-        }
-    }
-    /**
-     * Finds appropriate resource and add network events to the span
-     * @param span
-     */
-    _findResourceAndAddNetworkEvents(xhrMem, span, spanUrl, startTime, endTime) {
-        if (!spanUrl || !startTime || !endTime || !xhrMem.createdResources) {
-            return;
-        }
-        let resources = xhrMem.createdResources.entries;
-        if (!resources || !resources.length) {
-            // fallback - either Observer is not available or it took longer
-            // then OBSERVER_WAIT_TIME_MS and observer didn't collect enough
-            // information
-            // ts thinks this is the perf_hooks module, but it is the browser performance api
-            resources = core_1.otperformance.getEntriesByType('resource');
-        }
-        const resource = sdk_trace_web_1.getResource(spanUrl, startTime, endTime, resources, this._usedResources);
-        if (resource.mainRequest) {
-            const mainRequest = resource.mainRequest;
-            this._markResourceAsUsed(mainRequest);
-            const corsPreFlightRequest = resource.corsPreFlightRequest;
-            if (corsPreFlightRequest) {
-                this._addChildSpan(span, corsPreFlightRequest);
-                this._markResourceAsUsed(corsPreFlightRequest);
-            }
-            sdk_trace_web_1.addSpanNetworkEvents(span, mainRequest);
-        }
-    }
-    /**
-     * Removes the previous information about span.
-     * This might happened when the same xhr is used again.
-     * @param xhr
-     * @private
-     */
-    _cleanPreviousSpanInformation(xhr) {
-        const xhrMem = this._xhrMem.get(xhr);
-        if (xhrMem) {
-            const callbackToRemoveEvents = xhrMem.callbackToRemoveEvents;
-            if (callbackToRemoveEvents) {
-                callbackToRemoveEvents();
-            }
-            this._xhrMem.delete(xhr);
-        }
-    }
-    /**
-     * Creates a new span when method "open" is called
-     * @param xhr
-     * @param url
-     * @param method
-     * @private
-     */
-    _createSpan(xhr, url, method) {
-        if (core_1.isUrlIgnored(url, this._getConfig().ignoreUrls)) {
-            this._diag.debug('ignoring span as url matches ignored url');
-            return;
-        }
-        const spanName = `HTTP ${method.toUpperCase()}`;
-        const currentSpan = this.tracer.startSpan(spanName, {
-            kind: api.SpanKind.CLIENT,
-            attributes: {
-                [semantic_conventions_1.SemanticAttributes.HTTP_METHOD]: method,
-                [semantic_conventions_1.SemanticAttributes.HTTP_URL]: url,
-            },
-        });
-        currentSpan.addEvent(EventNames_1.EventNames.METHOD_OPEN);
-        this._cleanPreviousSpanInformation(xhr);
-        this._xhrMem.set(xhr, {
-            span: currentSpan,
-            spanUrl: url,
-        });
-        return currentSpan;
-    }
-    /**
-     * Marks certain [resource]{@link PerformanceResourceTiming} when information
-     * from this is used to add events to span.
-     * This is done to avoid reusing the same resource again for next span
-     * @param resource
-     * @private
-     */
-    _markResourceAsUsed(resource) {
-        this._usedResources.add(resource);
-    }
-    /**
-     * Patches the method open
-     * @private
-     */
-    _patchOpen() {
-        return (original) => {
-            const plugin = this;
-            return function patchOpen(...args) {
-                const method = args[0];
-                const url = args[1];
-                plugin._createSpan(this, url, method);
-                return original.apply(this, args);
-            };
-        };
-    }
-    /**
-     * Patches the method send
-     * @private
-     */
-    _patchSend() {
-        const plugin = this;
-        function endSpanTimeout(eventName, xhrMem, endTime) {
-            const callbackToRemoveEvents = xhrMem.callbackToRemoveEvents;
-            if (typeof callbackToRemoveEvents === 'function') {
-                callbackToRemoveEvents();
-            }
-            const { span, spanUrl, sendStartTime } = xhrMem;
-            if (span) {
-                plugin._findResourceAndAddNetworkEvents(xhrMem, span, spanUrl, sendStartTime, endTime);
-                span.addEvent(eventName, endTime);
-                plugin._addFinalSpanAttributes(span, xhrMem, spanUrl);
-                span.end(endTime);
-                plugin._tasksCount--;
-            }
-            plugin._clearResources();
-        }
-        function endSpan(eventName, xhr) {
-            const xhrMem = plugin._xhrMem.get(xhr);
-            if (!xhrMem) {
-                return;
-            }
-            xhrMem.status = xhr.status;
-            xhrMem.statusText = xhr.statusText;
-            plugin._xhrMem.delete(xhr);
-            if (xhrMem.span) {
-                plugin._applyAttributesAfterXHR(xhrMem.span, xhr);
-            }
-            const endTime = core_1.hrTime();
-            // the timeout is needed as observer doesn't have yet information
-            // when event "load" is called. Also the time may differ depends on
-            // browser and speed of computer
-            setTimeout(() => {
-                endSpanTimeout(eventName, xhrMem, endTime);
-            }, OBSERVER_WAIT_TIME_MS);
-        }
-        function onError() {
-            endSpan(EventNames_1.EventNames.EVENT_ERROR, this);
-        }
-        function onAbort() {
-            endSpan(EventNames_1.EventNames.EVENT_ABORT, this);
-        }
-        function onTimeout() {
-            endSpan(EventNames_1.EventNames.EVENT_TIMEOUT, this);
-        }
-        function onLoad() {
-            if (this.status < 299) {
-                endSpan(EventNames_1.EventNames.EVENT_LOAD, this);
-            }
-            else {
-                endSpan(EventNames_1.EventNames.EVENT_ERROR, this);
-            }
-        }
-        function unregister(xhr) {
-            xhr.removeEventListener('abort', onAbort);
-            xhr.removeEventListener('error', onError);
-            xhr.removeEventListener('load', onLoad);
-            xhr.removeEventListener('timeout', onTimeout);
-            const xhrMem = plugin._xhrMem.get(xhr);
-            if (xhrMem) {
-                xhrMem.callbackToRemoveEvents = undefined;
-            }
-        }
-        return (original) => {
-            return function patchSend(...args) {
-                const xhrMem = plugin._xhrMem.get(this);
-                if (!xhrMem) {
-                    return original.apply(this, args);
-                }
-                const currentSpan = xhrMem.span;
-                const spanUrl = xhrMem.spanUrl;
-                if (currentSpan && spanUrl) {
-                    api.context.with(api.trace.setSpan(api.context.active(), currentSpan), () => {
-                        plugin._tasksCount++;
-                        xhrMem.sendStartTime = core_1.hrTime();
-                        currentSpan.addEvent(EventNames_1.EventNames.METHOD_SEND);
-                        this.addEventListener('abort', onAbort);
-                        this.addEventListener('error', onError);
-                        this.addEventListener('load', onLoad);
-                        this.addEventListener('timeout', onTimeout);
-                        xhrMem.callbackToRemoveEvents = () => {
-                            unregister(this);
-                            if (xhrMem.createdResources) {
-                                xhrMem.createdResources.observer.disconnect();
-                            }
-                        };
-                        plugin._addHeaders(this, spanUrl);
-                        plugin._addResourceObserver(this, spanUrl);
-                    });
-                }
-                return original.apply(this, args);
-            };
-        };
-    }
-    /**
-     * implements enable function
-     */
-    enable() {
-        this._diag.debug('applying patch to', this.moduleName, this.version);
-        if (instrumentation_1.isWrapped(XMLHttpRequest.prototype.open)) {
-            this._unwrap(XMLHttpRequest.prototype, 'open');
-            this._diag.debug('removing previous patch from method open');
-        }
-        if (instrumentation_1.isWrapped(XMLHttpRequest.prototype.send)) {
-            this._unwrap(XMLHttpRequest.prototype, 'send');
-            this._diag.debug('removing previous patch from method send');
-        }
-        this._wrap(XMLHttpRequest.prototype, 'open', this._patchOpen());
-        this._wrap(XMLHttpRequest.prototype, 'send', this._patchSend());
-    }
-    /**
-     * implements disable function
-     */
-    disable() {
-        this._diag.debug('removing patch from', this.moduleName, this.version);
-        this._unwrap(XMLHttpRequest.prototype, 'open');
-        this._unwrap(XMLHttpRequest.prototype, 'send');
-        this._tasksCount = 0;
-        this._xhrMem = new WeakMap();
-        this._usedResources = new WeakSet();
-    }
-}
-exports.XMLHttpRequestInstrumentation = XMLHttpRequestInstrumentation;
-
-},{"./enums/AttributeNames":303,"./enums/EventNames":304,"./version":306,"@opentelemetry/api":33,"@opentelemetry/core":317,"@opentelemetry/instrumentation":351,"@opentelemetry/sdk-trace-web":436,"@opentelemetry/semantic-conventions":344}],308:[function(require,module,exports){
-arguments[4][71][0].apply(exports,arguments)
-},{"dup":71}],309:[function(require,module,exports){
-arguments[4][218][0].apply(exports,arguments)
-},{"dup":218}],310:[function(require,module,exports){
-arguments[4][219][0].apply(exports,arguments)
-},{"../../trace/suppress-tracing":336,"../constants":309,"../utils":311,"@opentelemetry/api":33,"dup":219}],311:[function(require,module,exports){
-arguments[4][220][0].apply(exports,arguments)
-},{"./constants":309,"@opentelemetry/api":33,"dup":220}],312:[function(require,module,exports){
-arguments[4][221][0].apply(exports,arguments)
-},{"dup":221}],313:[function(require,module,exports){
-arguments[4][222][0].apply(exports,arguments)
-},{"./logging-error-handler":314,"dup":222}],314:[function(require,module,exports){
-arguments[4][223][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":223}],315:[function(require,module,exports){
-arguments[4][224][0].apply(exports,arguments)
-},{"../platform":323,"dup":224}],316:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],317:[function(require,module,exports){
-arguments[4][226][0].apply(exports,arguments)
-},{"./ExportResult":308,"./baggage/propagation/W3CBaggagePropagator":310,"./baggage/utils":311,"./common/attributes":312,"./common/global-error-handler":313,"./common/logging-error-handler":314,"./common/time":315,"./common/types":316,"./platform":323,"./propagation/composite":327,"./trace/IdGenerator":328,"./trace/TraceState":329,"./trace/W3CTraceContextPropagator":330,"./trace/rpc-metadata":331,"./trace/sampler/AlwaysOffSampler":332,"./trace/sampler/AlwaysOnSampler":333,"./trace/sampler/ParentBasedSampler":334,"./trace/sampler/TraceIdRatioBasedSampler":335,"./trace/suppress-tracing":336,"./utils/environment":337,"./utils/merge":339,"./utils/sampling":340,"./utils/url":341,"./utils/wrap":342,"./version":343,"dup":226}],318:[function(require,module,exports){
-arguments[4][85][0].apply(exports,arguments)
-},{"dup":85}],319:[function(require,module,exports){
-arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],320:[function(require,module,exports){
-arguments[4][229][0].apply(exports,arguments)
-},{"../../utils/environment":337,"./globalThis":321,"dup":229}],321:[function(require,module,exports){
-arguments[4][230][0].apply(exports,arguments)
-},{"dup":230}],322:[function(require,module,exports){
-arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],323:[function(require,module,exports){
-arguments[4][232][0].apply(exports,arguments)
-},{"./RandomIdGenerator":319,"./environment":320,"./globalThis":321,"./hex-to-base64":322,"./performance":324,"./sdk-info":325,"./timer-util":326,"dup":232}],324:[function(require,module,exports){
-arguments[4][92][0].apply(exports,arguments)
-},{"dup":92}],325:[function(require,module,exports){
-arguments[4][234][0].apply(exports,arguments)
-},{"../../version":343,"@opentelemetry/semantic-conventions":344,"dup":234}],326:[function(require,module,exports){
-arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],327:[function(require,module,exports){
-arguments[4][236][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":236}],328:[function(require,module,exports){
-arguments[4][95][0].apply(exports,arguments)
-},{"dup":95}],329:[function(require,module,exports){
-arguments[4][97][0].apply(exports,arguments)
-},{"../internal/validators":318,"dup":97}],330:[function(require,module,exports){
-arguments[4][239][0].apply(exports,arguments)
-},{"./TraceState":329,"./suppress-tracing":336,"@opentelemetry/api":33,"dup":239}],331:[function(require,module,exports){
-arguments[4][240][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":240}],332:[function(require,module,exports){
-arguments[4][98][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":98}],333:[function(require,module,exports){
-arguments[4][99][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":99}],334:[function(require,module,exports){
-arguments[4][243][0].apply(exports,arguments)
-},{"../../common/global-error-handler":313,"./AlwaysOffSampler":332,"./AlwaysOnSampler":333,"@opentelemetry/api":33,"dup":243}],335:[function(require,module,exports){
-arguments[4][244][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":244}],336:[function(require,module,exports){
-arguments[4][245][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":245}],337:[function(require,module,exports){
-arguments[4][246][0].apply(exports,arguments)
-},{"./sampling":340,"@opentelemetry/api":33,"dup":246}],338:[function(require,module,exports){
-arguments[4][247][0].apply(exports,arguments)
-},{"dup":247}],339:[function(require,module,exports){
-arguments[4][248][0].apply(exports,arguments)
-},{"./lodash.merge":338,"dup":248}],340:[function(require,module,exports){
-arguments[4][249][0].apply(exports,arguments)
-},{"dup":249}],341:[function(require,module,exports){
-arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],342:[function(require,module,exports){
-arguments[4][105][0].apply(exports,arguments)
-},{"dup":105}],343:[function(require,module,exports){
-arguments[4][252][0].apply(exports,arguments)
-},{"dup":252}],344:[function(require,module,exports){
-arguments[4][253][0].apply(exports,arguments)
-},{"./resource":346,"./trace":348,"dup":253}],345:[function(require,module,exports){
-arguments[4][254][0].apply(exports,arguments)
-},{"dup":254}],346:[function(require,module,exports){
-arguments[4][255][0].apply(exports,arguments)
-},{"./SemanticResourceAttributes":345,"dup":255}],347:[function(require,module,exports){
-arguments[4][256][0].apply(exports,arguments)
-},{"dup":256}],348:[function(require,module,exports){
-arguments[4][257][0].apply(exports,arguments)
-},{"./SemanticAttributes":347,"dup":257}],349:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.registerInstrumentations = void 0;
-const api_1 = require("@opentelemetry/api");
-const api_metrics_1 = require("@opentelemetry/api-metrics");
-const autoLoaderUtils_1 = require("./autoLoaderUtils");
-/**
- * It will register instrumentations and plugins
- * @param options
- * @return returns function to unload instrumentation and plugins that were
- *   registered
- */
-function registerInstrumentations(options) {
-    const { instrumentations } = autoLoaderUtils_1.parseInstrumentationOptions(options.instrumentations);
-    const tracerProvider = options.tracerProvider || api_1.trace.getTracerProvider();
-    const meterProvider = options.meterProvider || api_metrics_1.metrics.getMeterProvider();
-    autoLoaderUtils_1.enableInstrumentations(instrumentations, tracerProvider, meterProvider);
-    return () => {
-        autoLoaderUtils_1.disableInstrumentations(instrumentations);
-    };
-}
-exports.registerInstrumentations = registerInstrumentations;
-
-},{"./autoLoaderUtils":350,"@opentelemetry/api":33,"@opentelemetry/api-metrics":6}],350:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.disableInstrumentations = exports.enableInstrumentations = exports.parseInstrumentationOptions = void 0;
-/**
- * Parses the options and returns instrumentations, node plugins and
- *   web plugins
- * @param options
- */
-function parseInstrumentationOptions(options = []) {
-    let instrumentations = [];
-    for (let i = 0, j = options.length; i < j; i++) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const option = options[i];
-        if (Array.isArray(option)) {
-            const results = parseInstrumentationOptions(option);
-            instrumentations = instrumentations.concat(results.instrumentations);
-        }
-        else if (typeof option === 'function') {
-            instrumentations.push(new option());
-        }
-        else if (option.instrumentationName) {
-            instrumentations.push(option);
-        }
-    }
-    return { instrumentations };
-}
-exports.parseInstrumentationOptions = parseInstrumentationOptions;
-/**
- * Enable instrumentations
- * @param instrumentations
- * @param tracerProvider
- * @param meterProvider
- */
-function enableInstrumentations(instrumentations, tracerProvider, meterProvider) {
-    for (let i = 0, j = instrumentations.length; i < j; i++) {
-        const instrumentation = instrumentations[i];
-        if (tracerProvider) {
-            instrumentation.setTracerProvider(tracerProvider);
-        }
-        if (meterProvider) {
-            instrumentation.setMeterProvider(meterProvider);
-        }
-        // instrumentations have been already enabled during creation
-        // so enable only if user prevented that by setting enabled to false
-        // this is to prevent double enabling but when calling register all
-        // instrumentations should be now enabled
-        if (!instrumentation.getConfig().enabled) {
-            instrumentation.enable();
-        }
-    }
-}
-exports.enableInstrumentations = enableInstrumentations;
-/**
- * Disable instrumentations
- * @param instrumentations
- */
-function disableInstrumentations(instrumentations) {
-    instrumentations.forEach(instrumentation => instrumentation.disable());
-}
-exports.disableInstrumentations = disableInstrumentations;
-
-},{}],351:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./autoLoader"), exports);
-__exportStar(require("./platform/index"), exports);
-__exportStar(require("./types"), exports);
-__exportStar(require("./types_internal"), exports);
-__exportStar(require("./utils"), exports);
-
-},{"./autoLoader":349,"./platform/index":353,"./types":355,"./types_internal":356,"./utils":357}],352:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.InstrumentationAbstract = void 0;
-const api_1 = require("@opentelemetry/api");
-const api_metrics_1 = require("@opentelemetry/api-metrics");
-const shimmer = require("shimmer");
-/**
- * Base abstract internal class for instrumenting node and web plugins
- */
-class InstrumentationAbstract {
-    constructor(instrumentationName, instrumentationVersion, config = {}) {
-        this.instrumentationName = instrumentationName;
-        this.instrumentationVersion = instrumentationVersion;
-        /* Api to wrap instrumented method */
-        this._wrap = shimmer.wrap;
-        /* Api to unwrap instrumented methods */
-        this._unwrap = shimmer.unwrap;
-        /* Api to mass wrap instrumented method */
-        this._massWrap = shimmer.massWrap;
-        /* Api to mass unwrap instrumented methods */
-        this._massUnwrap = shimmer.massUnwrap;
-        this._config = Object.assign({ enabled: true }, config);
-        this._diag = api_1.diag.createComponentLogger({
-            namespace: instrumentationName,
-        });
-        this._tracer = api_1.trace.getTracer(instrumentationName, instrumentationVersion);
-        this._meter = api_metrics_1.metrics.getMeter(instrumentationName, instrumentationVersion);
-    }
-    /* Returns meter */
-    get meter() {
-        return this._meter;
-    }
-    /**
-     * Sets MeterProvider to this plugin
-     * @param meterProvider
-     */
-    setMeterProvider(meterProvider) {
-        this._meter = meterProvider.getMeter(this.instrumentationName, this.instrumentationVersion);
-    }
-    /* Returns InstrumentationConfig */
-    getConfig() {
-        return this._config;
-    }
-    /**
-     * Sets InstrumentationConfig to this plugin
-     * @param InstrumentationConfig
-     */
-    setConfig(config = {}) {
-        this._config = Object.assign({}, config);
-    }
-    /**
-     * Sets TraceProvider to this plugin
-     * @param tracerProvider
-     */
-    setTracerProvider(tracerProvider) {
-        this._tracer = tracerProvider.getTracer(this.instrumentationName, this.instrumentationVersion);
-    }
-    /* Returns tracer */
-    get tracer() {
-        return this._tracer;
-    }
-}
-exports.InstrumentationAbstract = InstrumentationAbstract;
-
-},{"@opentelemetry/api":33,"@opentelemetry/api-metrics":6,"shimmer":480}],353:[function(require,module,exports){
-arguments[4][213][0].apply(exports,arguments)
-},{"./instrumentation":354,"dup":213}],354:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.InstrumentationBase = void 0;
-const instrumentation_1 = require("../../instrumentation");
-/**
- * Base abstract class for instrumenting web plugins
- */
-class InstrumentationBase extends instrumentation_1.InstrumentationAbstract {
-    constructor(instrumentationName, instrumentationVersion, config = {}) {
-        super(instrumentationName, instrumentationVersion, config);
-        if (this._config.enabled) {
-            this.enable();
-        }
-    }
-}
-exports.InstrumentationBase = InstrumentationBase;
-
-},{"../../instrumentation":352}],355:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],356:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],357:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isWrapped = exports.safeExecuteInTheMiddleAsync = exports.safeExecuteInTheMiddle = void 0;
-/**
- * function to execute patched function and being able to catch errors
- * @param execute - function to be executed
- * @param onFinish - callback to run when execute finishes
- */
-function safeExecuteInTheMiddle(execute, onFinish, preventThrowingError) {
-    let error;
-    let result;
-    try {
-        result = execute();
-    }
-    catch (e) {
-        error = e;
-    }
-    finally {
-        onFinish(error, result);
-        if (error && !preventThrowingError) {
-            // eslint-disable-next-line no-unsafe-finally
-            throw error;
-        }
-        // eslint-disable-next-line no-unsafe-finally
-        return result;
-    }
-}
-exports.safeExecuteInTheMiddle = safeExecuteInTheMiddle;
-/**
- * Async function to execute patched function and being able to catch errors
- * @param execute - function to be executed
- * @param onFinish - callback to run when execute finishes
- */
-async function safeExecuteInTheMiddleAsync(execute, onFinish, preventThrowingError) {
-    let error;
-    let result;
-    try {
-        result = await execute();
-    }
-    catch (e) {
-        error = e;
-    }
-    finally {
-        onFinish(error, result);
-        if (error && !preventThrowingError) {
-            // eslint-disable-next-line no-unsafe-finally
-            throw error;
-        }
-        // eslint-disable-next-line no-unsafe-finally
-        return result;
-    }
-}
-exports.safeExecuteInTheMiddleAsync = safeExecuteInTheMiddleAsync;
-/**
- * Checks if certain function has been already wrapped
- * @param func
- */
-function isWrapped(func) {
-    return (typeof func === 'function' &&
-        typeof func.__original === 'function' &&
-        typeof func.__unwrap === 'function' &&
-        func.__wrapped === true);
-}
-exports.isWrapped = isWrapped;
-
-},{}],358:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Resource = void 0;
-const core_1 = require("@opentelemetry/core");
-const constants_1 = require("./constants");
-/**
- * A Resource describes the entity for which a signals (metrics or trace) are
- * collected.
- */
-class Resource {
-    constructor(
-    /**
-     * A dictionary of attributes with string keys and values that provide
-     * information about the entity as numbers, strings or booleans
-     * TODO: Consider to add check/validation on attributes.
-     */
-    attributes) {
-        this.attributes = attributes;
-    }
-    /**
-     * Returns an empty Resource
-     */
-    static empty() {
-        return Resource.EMPTY;
-    }
-    /**
-     * Returns a Resource that indentifies the SDK in use.
-     */
-    static createTelemetrySDKResource() {
-        return new Resource({
-            [constants_1.TELEMETRY_SDK_RESOURCE.LANGUAGE]: core_1.SDK_INFO.LANGUAGE,
-            [constants_1.TELEMETRY_SDK_RESOURCE.NAME]: core_1.SDK_INFO.NAME,
-            [constants_1.TELEMETRY_SDK_RESOURCE.VERSION]: core_1.SDK_INFO.VERSION,
-        });
-    }
-    /**
-     * Returns a new, merged {@link Resource} by merging the current Resource
-     * with the other Resource. In case of a collision, current Resource takes
-     * precedence.
-     *
-     * @param other the Resource that will be merged with this.
-     * @returns the newly merged Resource.
-     */
-    merge(other) {
-        if (!other || !Object.keys(other.attributes).length)
-            return this;
-        // Attributes from resource overwrite attributes from other resource.
-        const mergedAttributes = Object.assign({}, other.attributes, this.attributes);
-        return new Resource(mergedAttributes);
-    }
-}
-exports.Resource = Resource;
-Resource.EMPTY = new Resource({});
-
-},{"./constants":360,"@opentelemetry/core":84}],359:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],360:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PROCESS_RESOURCE = exports.SERVICE_RESOURCE = exports.TELEMETRY_SDK_RESOURCE = exports.K8S_RESOURCE = exports.HOST_RESOURCE = exports.CONTAINER_RESOURCE = exports.CLOUD_RESOURCE = void 0;
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-exports.CLOUD_RESOURCE = {
-    /** Name of the cloud provider. Example values are aws, azure, gcp. */
-    PROVIDER: 'cloud.provider',
-    /** The cloud account id used to identify different entities. */
-    ACCOUNT_ID: 'cloud.account.id',
-    /** A specific geographical location where different entities can run. */
-    REGION: 'cloud.region',
-    /** Zones are a sub set of the region connected through low-latency links. */
-    ZONE: 'cloud.zone',
-};
-/**
- * Attributes defining a compute unit (e.g. Container, Process, Lambda
- * Function).
- * */
-exports.CONTAINER_RESOURCE = {
-    /** The container name. */
-    NAME: 'container.name',
-    /** The container id. */
-    ID: 'container.id',
-    /** The name of the image the container was built on. */
-    IMAGE_NAME: 'container.image.name',
-    /** The container image tag. */
-    IMAGE_TAG: 'container.image.tag',
-};
-/** Attributes defining a computing instance (e.g. host). */
-exports.HOST_RESOURCE = {
-    /**
-     * Unique host id. For Cloud this must be the instance_id assigned by the
-     * cloud provider
-     */
-    ID: 'host.id',
-    /**
-     * Name of the host. It may contain what hostname returns on Unix systems,
-     * the fully qualified, or a name specified by the user.
-     */
-    NAME: 'host.name',
-    /** Type of host. For Cloud this must be the machine type.*/
-    TYPE: 'host.type',
-    /** Name of the VM image or OS install the host was instantiated from. */
-    IMAGE_NAME: 'host.image.name',
-    /** VM image id. For Cloud, this value is from the provider. */
-    IMAGE_ID: 'host.image.id',
-    /** The version string of the VM image */
-    IMAGE_VERSION: 'host.image.version',
-};
-/** Attributes defining a deployment service (e.g. Kubernetes). */
-exports.K8S_RESOURCE = {
-    /** The name of the cluster that the pod is running in. */
-    CLUSTER_NAME: 'k8s.cluster.name',
-    /** The name of the namespace that the pod is running in. */
-    NAMESPACE_NAME: 'k8s.namespace.name',
-    /** The name of the pod. */
-    POD_NAME: 'k8s.pod.name',
-    /** The name of the deployment. */
-    DEPLOYMENT_NAME: 'k8s.deployment.name',
-};
-/** Attributes describing the telemetry library. */
-exports.TELEMETRY_SDK_RESOURCE = {
-    /** The name of the telemetry library. */
-    NAME: 'telemetry.sdk.name',
-    /** The language of telemetry library and of the code instrumented with it. */
-    LANGUAGE: 'telemetry.sdk.language',
-    /** The version string of the telemetry library */
-    VERSION: 'telemetry.sdk.version',
-};
-/** Attributes describing a service instance. */
-exports.SERVICE_RESOURCE = {
-    /** Logical name of the service.  */
-    NAME: 'service.name',
-    /** A namespace for `service.name`. */
-    NAMESPACE: 'service.namespace',
-    /** The string ID of the service instance. */
-    INSTANCE_ID: 'service.instance.id',
-    /** The version string of the service API or implementation. */
-    VERSION: 'service.version',
-};
-/** Attributes describing a Process. */
-exports.PROCESS_RESOURCE = {
-    /** A command which launced this proces.  */
-    COMMAND: 'process.command',
-    /** The full command with arguments as string.  */
-    COMMAND_LINE: 'process.command_line',
-    /** A name given to currently running porcess defaults to executable (process.title) .  */
-    NAME: 'process.executable.name',
-    /** An owner of currently running process.  */
-    OWNER: 'process.owner',
-    /** The full path to the process executable.  */
-    PATH: 'process.executable.path',
-    /** Process identifier of currently running process.  */
-    PID: 'process.id',
-};
-
-},{}],361:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./Resource"), exports);
-__exportStar(require("./platform"), exports);
-__exportStar(require("./constants"), exports);
-__exportStar(require("./types"), exports);
-__exportStar(require("./config"), exports);
-
-},{"./Resource":358,"./config":359,"./constants":360,"./platform":363,"./types":364}],362:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.detectResources = void 0;
-const Resource_1 = require("../../Resource");
-/**
- * Detects resources for the browser platform, which is currently only the
- * telemetry SDK resource. More could be added in the future. This method
- * is async to match the signature of corresponding method for node.
- */
-exports.detectResources = async () => {
-    return Resource_1.Resource.createTelemetrySDKResource();
-};
-
-},{"../../Resource":358}],363:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./detect-resources"), exports);
-
-},{"./detect-resources":362}],364:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],365:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BasicTracerProvider = exports.ForceFlushState = void 0;
-const api_1 = require("@opentelemetry/api");
-const core_1 = require("@opentelemetry/core");
-const resources_1 = require("@opentelemetry/resources");
-const _1 = require(".");
-const config_1 = require("./config");
-const MultiSpanProcessor_1 = require("./MultiSpanProcessor");
-const NoopSpanProcessor_1 = require("./export/NoopSpanProcessor");
-const platform_1 = require("./platform");
-var ForceFlushState;
-(function (ForceFlushState) {
-    ForceFlushState[ForceFlushState["resolved"] = 0] = "resolved";
-    ForceFlushState[ForceFlushState["timeout"] = 1] = "timeout";
-    ForceFlushState[ForceFlushState["error"] = 2] = "error";
-    ForceFlushState[ForceFlushState["unresolved"] = 3] = "unresolved";
-})(ForceFlushState = exports.ForceFlushState || (exports.ForceFlushState = {}));
-/**
- * This class represents a basic tracer provider which platform libraries can extend
- */
-class BasicTracerProvider {
-    constructor(config = {}) {
-        var _a;
-        this._registeredSpanProcessors = [];
-        this._tracers = new Map();
-        const mergedConfig = core_1.merge({}, config_1.DEFAULT_CONFIG, config);
-        this.resource = (_a = mergedConfig.resource) !== null && _a !== void 0 ? _a : resources_1.Resource.empty();
-        this.resource = resources_1.Resource.default().merge(this.resource);
-        this._config = Object.assign({}, mergedConfig, {
-            resource: this.resource,
-        });
-        const defaultExporter = this._buildExporterFromEnv();
-        if (defaultExporter !== undefined) {
-            const batchProcessor = new platform_1.BatchSpanProcessor(defaultExporter);
-            this.activeSpanProcessor = batchProcessor;
-        }
-        else {
-            this.activeSpanProcessor = new NoopSpanProcessor_1.NoopSpanProcessor();
-        }
-    }
-    getTracer(name, version) {
-        const key = `${name}@${version || ''}`;
-        if (!this._tracers.has(key)) {
-            this._tracers.set(key, new _1.Tracer({ name, version }, this._config, this));
-        }
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        return this._tracers.get(key);
-    }
-    /**
-     * Adds a new {@link SpanProcessor} to this tracer.
-     * @param spanProcessor the new SpanProcessor to be added.
-     */
-    addSpanProcessor(spanProcessor) {
-        if (this._registeredSpanProcessors.length === 0) {
-            // since we might have enabled by default a batchProcessor, we disable it
-            // before adding the new one
-            this.activeSpanProcessor
-                .shutdown()
-                .catch(err => api_1.diag.error('Error while trying to shutdown current span processor', err));
-        }
-        this._registeredSpanProcessors.push(spanProcessor);
-        this.activeSpanProcessor = new MultiSpanProcessor_1.MultiSpanProcessor(this._registeredSpanProcessors);
-    }
-    getActiveSpanProcessor() {
-        return this.activeSpanProcessor;
-    }
-    /**
-     * Register this TracerProvider for use with the OpenTelemetry API.
-     * Undefined values may be replaced with defaults, and
-     * null values will be skipped.
-     *
-     * @param config Configuration object for SDK registration
-     */
-    register(config = {}) {
-        api_1.trace.setGlobalTracerProvider(this);
-        if (config.propagator === undefined) {
-            config.propagator = this._buildPropagatorFromEnv();
-        }
-        if (config.contextManager) {
-            api_1.context.setGlobalContextManager(config.contextManager);
-        }
-        if (config.propagator) {
-            api_1.propagation.setGlobalPropagator(config.propagator);
-        }
-    }
-    forceFlush() {
-        const timeout = this._config.forceFlushTimeoutMillis;
-        const promises = this._registeredSpanProcessors.map((spanProcessor) => {
-            return new Promise(resolve => {
-                let state;
-                const timeoutInterval = setTimeout(() => {
-                    resolve(new Error(`Span processor did not completed within timeout period of ${timeout} ms`));
-                    state = ForceFlushState.timeout;
-                }, timeout);
-                spanProcessor
-                    .forceFlush()
-                    .then(() => {
-                    clearTimeout(timeoutInterval);
-                    if (state !== ForceFlushState.timeout) {
-                        state = ForceFlushState.resolved;
-                        resolve(state);
-                    }
-                })
-                    .catch(error => {
-                    clearTimeout(timeoutInterval);
-                    state = ForceFlushState.error;
-                    resolve(error);
-                });
-            });
-        });
-        return new Promise((resolve, reject) => {
-            Promise.all(promises)
-                .then(results => {
-                const errors = results.filter(result => result !== ForceFlushState.resolved);
-                if (errors.length > 0) {
-                    reject(errors);
-                }
-                else {
-                    resolve();
-                }
-            })
-                .catch(error => reject([error]));
-        });
-    }
-    shutdown() {
-        return this.activeSpanProcessor.shutdown();
-    }
-    _getPropagator(name) {
-        var _a;
-        return (_a = BasicTracerProvider._registeredPropagators.get(name)) === null || _a === void 0 ? void 0 : _a();
-    }
-    _getSpanExporter(name) {
-        var _a;
-        return (_a = BasicTracerProvider._registeredExporters.get(name)) === null || _a === void 0 ? void 0 : _a();
-    }
-    _buildPropagatorFromEnv() {
-        // per spec, propagators from env must be deduplicated
-        const uniquePropagatorNames = Array.from(new Set(core_1.getEnv().OTEL_PROPAGATORS));
-        const propagators = uniquePropagatorNames.map(name => {
-            const propagator = this._getPropagator(name);
-            if (!propagator) {
-                api_1.diag.warn(`Propagator "${name}" requested through environment variable is unavailable.`);
-            }
-            return propagator;
-        });
-        const validPropagators = propagators.reduce((list, item) => {
-            if (item) {
-                list.push(item);
-            }
-            return list;
-        }, []);
-        if (validPropagators.length === 0) {
-            return;
-        }
-        else if (uniquePropagatorNames.length === 1) {
-            return validPropagators[0];
-        }
-        else {
-            return new core_1.CompositePropagator({
-                propagators: validPropagators,
-            });
-        }
-    }
-    _buildExporterFromEnv() {
-        const exporterName = core_1.getEnv().OTEL_TRACES_EXPORTER;
-        if (exporterName === 'none')
-            return;
-        const exporter = this._getSpanExporter(exporterName);
-        if (!exporter) {
-            api_1.diag.error(`Exporter "${exporterName}" requested through environment variable is unavailable.`);
-        }
-        return exporter;
-    }
-}
-exports.BasicTracerProvider = BasicTracerProvider;
-BasicTracerProvider._registeredPropagators = new Map([
-    ['tracecontext', () => new core_1.W3CTraceContextPropagator()],
-    ['baggage', () => new core_1.W3CBaggagePropagator()],
-]);
-BasicTracerProvider._registeredExporters = new Map();
-
-},{".":380,"./MultiSpanProcessor":366,"./config":371,"./export/NoopSpanProcessor":376,"./platform":382,"@opentelemetry/api":33,"@opentelemetry/core":394,"@opentelemetry/resources":423}],366:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MultiSpanProcessor = void 0;
-const core_1 = require("@opentelemetry/core");
-/**
- * Implementation of the {@link SpanProcessor} that simply forwards all
- * received events to a list of {@link SpanProcessor}s.
- */
-class MultiSpanProcessor {
-    constructor(_spanProcessors) {
-        this._spanProcessors = _spanProcessors;
-    }
-    forceFlush() {
-        const promises = [];
-        for (const spanProcessor of this._spanProcessors) {
-            promises.push(spanProcessor.forceFlush());
-        }
-        return new Promise(resolve => {
-            Promise.all(promises)
-                .then(() => {
-                resolve();
-            })
-                .catch(error => {
-                core_1.globalErrorHandler(error || new Error('MultiSpanProcessor: forceFlush failed'));
-                resolve();
-            });
-        });
-    }
-    onStart(span, context) {
-        for (const spanProcessor of this._spanProcessors) {
-            spanProcessor.onStart(span, context);
-        }
-    }
-    onEnd(span) {
-        for (const spanProcessor of this._spanProcessors) {
-            spanProcessor.onEnd(span);
-        }
-    }
-    shutdown() {
-        const promises = [];
-        for (const spanProcessor of this._spanProcessors) {
-            promises.push(spanProcessor.shutdown());
-        }
-        return new Promise((resolve, reject) => {
-            Promise.all(promises).then(() => {
-                resolve();
-            }, reject);
-        });
-    }
-}
-exports.MultiSpanProcessor = MultiSpanProcessor;
-
-},{"@opentelemetry/core":394}],367:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Span = void 0;
-const api = require("@opentelemetry/api");
-const core_1 = require("@opentelemetry/core");
-const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
-const enums_1 = require("./enums");
-/**
- * This class represents a span.
- */
-class Span {
-    /** Constructs a new Span instance. */
-    constructor(parentTracer, context, spanName, spanContext, kind, parentSpanId, links = [], startTime = core_1.hrTime()) {
-        this.attributes = {};
-        this.links = [];
-        this.events = [];
-        this.status = {
-            code: api.SpanStatusCode.UNSET,
-        };
-        this.endTime = [0, 0];
-        this._ended = false;
-        this._duration = [-1, -1];
-        this.name = spanName;
-        this._spanContext = spanContext;
-        this.parentSpanId = parentSpanId;
-        this.kind = kind;
-        this.links = links;
-        this.startTime = core_1.timeInputToHrTime(startTime);
-        this.resource = parentTracer.resource;
-        this.instrumentationLibrary = parentTracer.instrumentationLibrary;
-        this._spanLimits = parentTracer.getSpanLimits();
-        this._spanProcessor = parentTracer.getActiveSpanProcessor();
-        this._spanProcessor.onStart(this, context);
-        this._attributeValueLengthLimit = this._spanLimits.attributeValueLengthLimit || 0;
-    }
-    spanContext() {
-        return this._spanContext;
-    }
-    setAttribute(key, value) {
-        if (value == null || this._isSpanEnded())
-            return this;
-        if (key.length === 0) {
-            api.diag.warn(`Invalid attribute key: ${key}`);
-            return this;
-        }
-        if (!core_1.isAttributeValue(value)) {
-            api.diag.warn(`Invalid attribute value set for key: ${key}`);
-            return this;
-        }
-        if (Object.keys(this.attributes).length >=
-            this._spanLimits.attributeCountLimit &&
-            !Object.prototype.hasOwnProperty.call(this.attributes, key)) {
-            return this;
-        }
-        this.attributes[key] = this._truncateToSize(value);
-        return this;
-    }
-    setAttributes(attributes) {
-        for (const [k, v] of Object.entries(attributes)) {
-            this.setAttribute(k, v);
-        }
-        return this;
-    }
-    /**
-     *
-     * @param name Span Name
-     * @param [attributesOrStartTime] Span attributes or start time
-     *     if type is {@type TimeInput} and 3rd param is undefined
-     * @param [startTime] Specified start time for the event
-     */
-    addEvent(name, attributesOrStartTime, startTime) {
-        if (this._isSpanEnded())
-            return this;
-        if (this.events.length >= this._spanLimits.eventCountLimit) {
-            api.diag.warn('Dropping extra events.');
-            this.events.shift();
-        }
-        if (core_1.isTimeInput(attributesOrStartTime)) {
-            if (typeof startTime === 'undefined') {
-                startTime = attributesOrStartTime;
-            }
-            attributesOrStartTime = undefined;
-        }
-        if (typeof startTime === 'undefined') {
-            startTime = core_1.hrTime();
-        }
-        this.events.push({
-            name,
-            attributes: attributesOrStartTime,
-            time: core_1.timeInputToHrTime(startTime),
-        });
-        return this;
-    }
-    setStatus(status) {
-        if (this._isSpanEnded())
-            return this;
-        this.status = status;
-        return this;
-    }
-    updateName(name) {
-        if (this._isSpanEnded())
-            return this;
-        this.name = name;
-        return this;
-    }
-    end(endTime = core_1.hrTime()) {
-        if (this._isSpanEnded()) {
-            api.diag.error('You can only call end() on a span once.');
-            return;
-        }
-        this._ended = true;
-        this.endTime = core_1.timeInputToHrTime(endTime);
-        this._duration = core_1.hrTimeDuration(this.startTime, this.endTime);
-        if (this._duration[0] < 0) {
-            api.diag.warn('Inconsistent start and end time, startTime > endTime', this.startTime, this.endTime);
-        }
-        this._spanProcessor.onEnd(this);
-    }
-    isRecording() {
-        return this._ended === false;
-    }
-    recordException(exception, time = core_1.hrTime()) {
-        const attributes = {};
-        if (typeof exception === 'string') {
-            attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_MESSAGE] = exception;
-        }
-        else if (exception) {
-            if (exception.code) {
-                attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_TYPE] = exception.code.toString();
-            }
-            else if (exception.name) {
-                attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_TYPE] = exception.name;
-            }
-            if (exception.message) {
-                attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_MESSAGE] = exception.message;
-            }
-            if (exception.stack) {
-                attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_STACKTRACE] = exception.stack;
-            }
-        }
-        // these are minimum requirements from spec
-        if (attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_TYPE] ||
-            attributes[semantic_conventions_1.SemanticAttributes.EXCEPTION_MESSAGE]) {
-            this.addEvent(enums_1.ExceptionEventName, attributes, time);
-        }
-        else {
-            api.diag.warn(`Failed to record an exception ${exception}`);
-        }
-    }
-    get duration() {
-        return this._duration;
-    }
-    get ended() {
-        return this._ended;
-    }
-    _isSpanEnded() {
-        if (this._ended) {
-            api.diag.warn(`Can not execute the operation on ended Span {traceId: ${this._spanContext.traceId}, spanId: ${this._spanContext.spanId}}`);
-        }
-        return this._ended;
-    }
-    // Utility function to truncate given value within size
-    // for value type of string, will truncate to given limit
-    // for type of non-string, will return same value
-    _truncateToLimitUtil(value, limit) {
-        if (value.length <= limit) {
-            return value;
-        }
-        return value.substr(0, limit);
-    }
-    /**
-     * If the given attribute value is of type string and has more characters than given {@code attributeValueLengthLimit} then
-     * return string with trucated to {@code attributeValueLengthLimit} characters
-     *
-     * If the given attribute value is array of strings then
-     * return new array of strings with each element truncated to {@code attributeValueLengthLimit} characters
-     *
-     * Otherwise return same Attribute {@code value}
-     *
-     * @param value Attribute value
-     * @returns truncated attribute value if required, otherwise same value
-     */
-    _truncateToSize(value) {
-        const limit = this._attributeValueLengthLimit;
-        // Check limit
-        if (limit <= 0) {
-            // Negative values are invalid, so do not truncate
-            api.diag.warn(`Attribute value limit must be positive, got ${limit}`);
-            return value;
-        }
-        // String
-        if (typeof value === 'string') {
-            return this._truncateToLimitUtil(value, limit);
-        }
-        // Array of strings
-        if (Array.isArray(value)) {
-            return value.map(val => typeof val === 'string' ? this._truncateToLimitUtil(val, limit) : val);
-        }
-        // Other types, no need to apply value length limit
-        return value;
-    }
-}
-exports.Span = Span;
-
-},{"./enums":372,"@opentelemetry/api":33,"@opentelemetry/core":394,"@opentelemetry/semantic-conventions":428}],368:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],369:[function(require,module,exports){
-arguments[4][142][0].apply(exports,arguments)
-},{"dup":142}],370:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Tracer = void 0;
-const api = require("@opentelemetry/api");
-const core_1 = require("@opentelemetry/core");
-const Span_1 = require("./Span");
-const utility_1 = require("./utility");
-/**
- * This class represents a basic tracer.
- */
-class Tracer {
-    /**
-     * Constructs a new Tracer instance.
-     */
-    constructor(instrumentationLibrary, config, _tracerProvider) {
-        this._tracerProvider = _tracerProvider;
-        const localConfig = utility_1.mergeConfig(config);
-        this._sampler = localConfig.sampler;
-        this._generalLimits = localConfig.generalLimits;
-        this._spanLimits = localConfig.spanLimits;
-        this._idGenerator = config.idGenerator || new core_1.RandomIdGenerator();
-        this.resource = _tracerProvider.resource;
-        this.instrumentationLibrary = instrumentationLibrary;
-    }
-    /**
-     * Starts a new Span or returns the default NoopSpan based on the sampling
-     * decision.
-     */
-    startSpan(name, options = {}, context = api.context.active()) {
-        var _a, _b;
-        if (core_1.isTracingSuppressed(context)) {
-            api.diag.debug('Instrumentation suppressed, returning Noop Span');
-            return api.trace.wrapSpanContext(api.INVALID_SPAN_CONTEXT);
-        }
-        const parentContext = getParent(options, context);
-        const spanId = this._idGenerator.generateSpanId();
-        let traceId;
-        let traceState;
-        let parentSpanId;
-        if (!parentContext || !api.trace.isSpanContextValid(parentContext)) {
-            // New root span.
-            traceId = this._idGenerator.generateTraceId();
-        }
-        else {
-            // New child span.
-            traceId = parentContext.traceId;
-            traceState = parentContext.traceState;
-            parentSpanId = parentContext.spanId;
-        }
-        const spanKind = (_a = options.kind) !== null && _a !== void 0 ? _a : api.SpanKind.INTERNAL;
-        const links = (_b = options.links) !== null && _b !== void 0 ? _b : [];
-        const attributes = core_1.sanitizeAttributes(options.attributes);
-        // make sampling decision
-        const samplingResult = this._sampler.shouldSample(options.root
-            ? api.trace.setSpanContext(context, api.INVALID_SPAN_CONTEXT)
-            : context, traceId, name, spanKind, attributes, links);
-        const traceFlags = samplingResult.decision === api.SamplingDecision.RECORD_AND_SAMPLED
-            ? api.TraceFlags.SAMPLED
-            : api.TraceFlags.NONE;
-        const spanContext = { traceId, spanId, traceFlags, traceState };
-        if (samplingResult.decision === api.SamplingDecision.NOT_RECORD) {
-            api.diag.debug('Recording is off, propagating context in a non-recording span');
-            return api.trace.wrapSpanContext(spanContext);
-        }
-        const span = new Span_1.Span(this, context, name, spanContext, spanKind, parentSpanId, links, options.startTime);
-        // Set default attributes
-        span.setAttributes(Object.assign(attributes, samplingResult.attributes));
-        return span;
-    }
-    startActiveSpan(name, arg2, arg3, arg4) {
-        let opts;
-        let ctx;
-        let fn;
-        if (arguments.length < 2) {
-            return;
-        }
-        else if (arguments.length === 2) {
-            fn = arg2;
-        }
-        else if (arguments.length === 3) {
-            opts = arg2;
-            fn = arg3;
-        }
-        else {
-            opts = arg2;
-            ctx = arg3;
-            fn = arg4;
-        }
-        const parentContext = ctx !== null && ctx !== void 0 ? ctx : api.context.active();
-        const span = this.startSpan(name, opts, parentContext);
-        const contextWithSpanSet = api.trace.setSpan(parentContext, span);
-        return api.context.with(contextWithSpanSet, fn, undefined, span);
-    }
-    /** Returns the active {@link GeneralLimits}. */
-    getGeneralLimits() {
-        return this._generalLimits;
-    }
-    /** Returns the active {@link SpanLimits}. */
-    getSpanLimits() {
-        return this._spanLimits;
-    }
-    getActiveSpanProcessor() {
-        return this._tracerProvider.getActiveSpanProcessor();
-    }
-}
-exports.Tracer = Tracer;
-/**
- * Get the parent to assign to a started span. If options.parent is null,
- * do not assign a parent.
- *
- * @param options span options
- * @param context context to check for parent
- */
-function getParent(options, context) {
-    if (options.root)
-        return undefined;
-    return api.trace.getSpanContext(context);
-}
-
-},{"./Span":367,"./utility":384,"@opentelemetry/api":33,"@opentelemetry/core":394}],371:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildSamplerFromEnv = exports.DEFAULT_CONFIG = void 0;
-const api_1 = require("@opentelemetry/api");
-const core_1 = require("@opentelemetry/core");
-const env = core_1.getEnv();
-const FALLBACK_OTEL_TRACES_SAMPLER = core_1.TracesSamplerValues.AlwaysOn;
-const DEFAULT_RATIO = 1;
-/**
- * Default configuration. For fields with primitive values, any user-provided
- * value will override the corresponding default value. For fields with
- * non-primitive values (like `spanLimits`), the user-provided value will be
- * used to extend the default value.
- */
-exports.DEFAULT_CONFIG = {
-    sampler: buildSamplerFromEnv(env),
-    forceFlushTimeoutMillis: 30000,
-    generalLimits: {
-        attributeValueLengthLimit: core_1.getEnv().OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT,
-        attributeCountLimit: core_1.getEnv().OTEL_ATTRIBUTE_COUNT_LIMIT,
-    },
-    spanLimits: {
-        attributeValueLengthLimit: core_1.getEnv().OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT,
-        attributeCountLimit: core_1.getEnv().OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT,
-        linkCountLimit: core_1.getEnv().OTEL_SPAN_LINK_COUNT_LIMIT,
-        eventCountLimit: core_1.getEnv().OTEL_SPAN_EVENT_COUNT_LIMIT,
-    },
-};
-/**
- * Based on environment, builds a sampler, complies with specification.
- * @param environment optional, by default uses getEnv(), but allows passing a value to reuse parsed environment
- */
-function buildSamplerFromEnv(environment = core_1.getEnv()) {
-    switch (environment.OTEL_TRACES_SAMPLER) {
-        case core_1.TracesSamplerValues.AlwaysOn:
-            return new core_1.AlwaysOnSampler();
-        case core_1.TracesSamplerValues.AlwaysOff:
-            return new core_1.AlwaysOffSampler();
-        case core_1.TracesSamplerValues.ParentBasedAlwaysOn:
-            return new core_1.ParentBasedSampler({
-                root: new core_1.AlwaysOnSampler(),
-            });
-        case core_1.TracesSamplerValues.ParentBasedAlwaysOff:
-            return new core_1.ParentBasedSampler({
-                root: new core_1.AlwaysOffSampler(),
-            });
-        case core_1.TracesSamplerValues.TraceIdRatio:
-            return new core_1.TraceIdRatioBasedSampler(getSamplerProbabilityFromEnv(environment));
-        case core_1.TracesSamplerValues.ParentBasedTraceIdRatio:
-            return new core_1.ParentBasedSampler({
-                root: new core_1.TraceIdRatioBasedSampler(getSamplerProbabilityFromEnv(environment)),
-            });
-        default:
-            api_1.diag.error(`OTEL_TRACES_SAMPLER value "${environment.OTEL_TRACES_SAMPLER} invalid, defaulting to ${FALLBACK_OTEL_TRACES_SAMPLER}".`);
-            return new core_1.AlwaysOnSampler();
-    }
-}
-exports.buildSamplerFromEnv = buildSamplerFromEnv;
-function getSamplerProbabilityFromEnv(environment) {
-    if (environment.OTEL_TRACES_SAMPLER_ARG === undefined ||
-        environment.OTEL_TRACES_SAMPLER_ARG === '') {
-        api_1.diag.error(`OTEL_TRACES_SAMPLER_ARG is blank, defaulting to ${DEFAULT_RATIO}.`);
-        return DEFAULT_RATIO;
-    }
-    const probability = Number(environment.OTEL_TRACES_SAMPLER_ARG);
-    if (isNaN(probability)) {
-        api_1.diag.error(`OTEL_TRACES_SAMPLER_ARG=${environment.OTEL_TRACES_SAMPLER_ARG} was given, but it is invalid, defaulting to ${DEFAULT_RATIO}.`);
-        return DEFAULT_RATIO;
-    }
-    if (probability < 0 || probability > 1) {
-        api_1.diag.error(`OTEL_TRACES_SAMPLER_ARG=${environment.OTEL_TRACES_SAMPLER_ARG} was given, but it is out of range ([0..1]), defaulting to ${DEFAULT_RATIO}.`);
-        return DEFAULT_RATIO;
-    }
-    return probability;
-}
-
-},{"@opentelemetry/api":33,"@opentelemetry/core":394}],372:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ExceptionEventName = void 0;
-// Event name definitions
-exports.ExceptionEventName = 'exception';
-
-},{}],373:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BatchSpanProcessorBase = void 0;
-const api_1 = require("@opentelemetry/api");
-const core_1 = require("@opentelemetry/core");
-/**
- * Implementation of the {@link SpanProcessor} that batches spans exported by
- * the SDK then pushes them to the exporter pipeline.
- */
-class BatchSpanProcessorBase {
-    constructor(_exporter, config) {
-        this._exporter = _exporter;
-        this._finishedSpans = [];
-        this._isShutdown = false;
-        this._shuttingDownPromise = Promise.resolve();
-        const env = core_1.getEnv();
-        this._maxExportBatchSize =
-            typeof (config === null || config === void 0 ? void 0 : config.maxExportBatchSize) === 'number'
-                ? config.maxExportBatchSize
-                : env.OTEL_BSP_MAX_EXPORT_BATCH_SIZE;
-        this._maxQueueSize =
-            typeof (config === null || config === void 0 ? void 0 : config.maxQueueSize) === 'number'
-                ? config.maxQueueSize
-                : env.OTEL_BSP_MAX_QUEUE_SIZE;
-        this._scheduledDelayMillis =
-            typeof (config === null || config === void 0 ? void 0 : config.scheduledDelayMillis) === 'number'
-                ? config.scheduledDelayMillis
-                : env.OTEL_BSP_SCHEDULE_DELAY;
-        this._exportTimeoutMillis =
-            typeof (config === null || config === void 0 ? void 0 : config.exportTimeoutMillis) === 'number'
-                ? config.exportTimeoutMillis
-                : env.OTEL_BSP_EXPORT_TIMEOUT;
-    }
-    forceFlush() {
-        if (this._isShutdown) {
-            return this._shuttingDownPromise;
-        }
-        return this._flushAll();
-    }
-    // does nothing.
-    onStart(_span) { }
-    onEnd(span) {
-        if (this._isShutdown) {
-            return;
-        }
-        if ((span.spanContext().traceFlags & api_1.TraceFlags.SAMPLED) === 0) {
-            return;
-        }
-        this._addToBuffer(span);
-    }
-    shutdown() {
-        if (this._isShutdown) {
-            return this._shuttingDownPromise;
-        }
-        this._isShutdown = true;
-        this._shuttingDownPromise = new Promise((resolve, reject) => {
-            Promise.resolve()
-                .then(() => {
-                return this.onShutdown();
-            })
-                .then(() => {
-                return this._flushAll();
-            })
-                .then(() => {
-                return this._exporter.shutdown();
-            })
-                .then(resolve)
-                .catch(e => {
-                reject(e);
-            });
-        });
-        return this._shuttingDownPromise;
-    }
-    /** Add a span in the buffer. */
-    _addToBuffer(span) {
-        if (this._finishedSpans.length >= this._maxQueueSize) {
-            // limit reached, drop span
-            return;
-        }
-        this._finishedSpans.push(span);
-        this._maybeStartTimer();
-    }
-    /**
-     * Send all spans to the exporter respecting the batch size limit
-     * This function is used only on forceFlush or shutdown,
-     * for all other cases _flush should be used
-     * */
-    _flushAll() {
-        return new Promise((resolve, reject) => {
-            const promises = [];
-            // calculate number of batches
-            const count = Math.ceil(this._finishedSpans.length / this._maxExportBatchSize);
-            for (let i = 0, j = count; i < j; i++) {
-                promises.push(this._flushOneBatch());
-            }
-            Promise.all(promises)
-                .then(() => {
-                resolve();
-            })
-                .catch(reject);
-        });
-    }
-    _flushOneBatch() {
-        this._clearTimer();
-        if (this._finishedSpans.length === 0) {
-            return Promise.resolve();
-        }
-        return new Promise((resolve, reject) => {
-            const timer = setTimeout(() => {
-                // don't wait anymore for export, this way the next batch can start
-                reject(new Error('Timeout'));
-            }, this._exportTimeoutMillis);
-            // prevent downstream exporter calls from generating spans
-            api_1.context.with(core_1.suppressTracing(api_1.context.active()), () => {
-                // Reset the finished spans buffer here because the next invocations of the _flush method
-                // could pass the same finished spans to the exporter if the buffer is cleared
-                // outside of the execution of this callback.
-                this._exporter.export(this._finishedSpans.splice(0, this._maxExportBatchSize), result => {
-                    var _a;
-                    clearTimeout(timer);
-                    if (result.code === core_1.ExportResultCode.SUCCESS) {
-                        resolve();
-                    }
-                    else {
-                        reject((_a = result.error) !== null && _a !== void 0 ? _a : new Error('BatchSpanProcessor: span export failed'));
-                    }
-                });
-            });
-        });
-    }
-    _maybeStartTimer() {
-        if (this._timer !== undefined)
-            return;
-        this._timer = setTimeout(() => {
-            this._flushOneBatch()
-                .then(() => {
-                if (this._finishedSpans.length > 0) {
-                    this._clearTimer();
-                    this._maybeStartTimer();
-                }
-            })
-                .catch(e => {
-                core_1.globalErrorHandler(e);
-            });
-        }, this._scheduledDelayMillis);
-        core_1.unrefTimer(this._timer);
-    }
-    _clearTimer() {
-        if (this._timer !== undefined) {
-            clearTimeout(this._timer);
-            this._timer = undefined;
-        }
-    }
-}
-exports.BatchSpanProcessorBase = BatchSpanProcessorBase;
-
-},{"@opentelemetry/api":33,"@opentelemetry/core":394}],374:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ConsoleSpanExporter = void 0;
-const core_1 = require("@opentelemetry/core");
-/**
- * This is implementation of {@link SpanExporter} that prints spans to the
- * console. This class can be used for diagnostic purposes.
- */
-/* eslint-disable no-console */
-class ConsoleSpanExporter {
-    /**
-     * Export spans.
-     * @param spans
-     * @param resultCallback
-     */
-    export(spans, resultCallback) {
-        return this._sendSpans(spans, resultCallback);
-    }
-    /**
-     * Shutdown the exporter.
-     */
-    shutdown() {
-        this._sendSpans([]);
-        return Promise.resolve();
-    }
-    /**
-     * converts span info into more readable format
-     * @param span
-     */
-    _exportInfo(span) {
-        return {
-            traceId: span.spanContext().traceId,
-            parentId: span.parentSpanId,
-            name: span.name,
-            id: span.spanContext().spanId,
-            kind: span.kind,
-            timestamp: core_1.hrTimeToMicroseconds(span.startTime),
-            duration: core_1.hrTimeToMicroseconds(span.duration),
-            attributes: span.attributes,
-            status: span.status,
-            events: span.events,
-        };
-    }
-    /**
-     * Showing spans in console
-     * @param spans
-     * @param done
-     */
-    _sendSpans(spans, done) {
-        for (const span of spans) {
-            console.log(this._exportInfo(span));
-        }
-        if (done) {
-            return done({ code: core_1.ExportResultCode.SUCCESS });
-        }
-    }
-}
-exports.ConsoleSpanExporter = ConsoleSpanExporter;
-
-},{"@opentelemetry/core":394}],375:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.InMemorySpanExporter = void 0;
-const core_1 = require("@opentelemetry/core");
-/**
- * This class can be used for testing purposes. It stores the exported spans
- * in a list in memory that can be retrieved using the `getFinishedSpans()`
- * method.
- */
-class InMemorySpanExporter {
-    constructor() {
-        this._finishedSpans = [];
-        /**
-         * Indicates if the exporter has been "shutdown."
-         * When false, exported spans will not be stored in-memory.
-         */
-        this._stopped = false;
-    }
-    export(spans, resultCallback) {
-        if (this._stopped)
-            return resultCallback({
-                code: core_1.ExportResultCode.FAILED,
-                error: new Error('Exporter has been stopped'),
-            });
-        this._finishedSpans.push(...spans);
-        setTimeout(() => resultCallback({ code: core_1.ExportResultCode.SUCCESS }), 0);
-    }
-    shutdown() {
-        this._stopped = true;
-        this._finishedSpans = [];
-        return Promise.resolve();
-    }
-    reset() {
-        this._finishedSpans = [];
-    }
-    getFinishedSpans() {
-        return this._finishedSpans;
-    }
-}
-exports.InMemorySpanExporter = InMemorySpanExporter;
-
-},{"@opentelemetry/core":394}],376:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NoopSpanProcessor = void 0;
-/** No-op implementation of SpanProcessor */
-class NoopSpanProcessor {
-    onStart(_span, _context) { }
-    onEnd(_span) { }
-    shutdown() {
-        return Promise.resolve();
-    }
-    forceFlush() {
-        return Promise.resolve();
-    }
-}
-exports.NoopSpanProcessor = NoopSpanProcessor;
-
-},{}],377:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],378:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SimpleSpanProcessor = void 0;
-const api_1 = require("@opentelemetry/api");
-const core_1 = require("@opentelemetry/core");
-/**
- * An implementation of the {@link SpanProcessor} that converts the {@link Span}
- * to {@link ReadableSpan} and passes it to the configured exporter.
- *
- * Only spans that are sampled are converted.
- */
-class SimpleSpanProcessor {
-    constructor(_exporter) {
-        this._exporter = _exporter;
-        this._isShutdown = false;
-        this._shuttingDownPromise = Promise.resolve();
-    }
-    forceFlush() {
-        // do nothing as all spans are being exported without waiting
-        return Promise.resolve();
-    }
-    // does nothing.
-    onStart(_span) { }
-    onEnd(span) {
-        if (this._isShutdown) {
-            return;
-        }
-        if ((span.spanContext().traceFlags & api_1.TraceFlags.SAMPLED) === 0) {
-            return;
-        }
-        // prevent downstream exporter calls from generating spans
-        api_1.context.with(core_1.suppressTracing(api_1.context.active()), () => {
-            this._exporter.export([span], result => {
-                var _a;
-                if (result.code !== core_1.ExportResultCode.SUCCESS) {
-                    core_1.globalErrorHandler((_a = result.error) !== null && _a !== void 0 ? _a : new Error(`SimpleSpanProcessor: span export failed (status ${result})`));
-                }
-            });
-        });
-    }
-    shutdown() {
-        if (this._isShutdown) {
-            return this._shuttingDownPromise;
-        }
-        this._isShutdown = true;
-        this._shuttingDownPromise = new Promise((resolve, reject) => {
-            Promise.resolve()
-                .then(() => {
-                return this._exporter.shutdown();
-            })
-                .then(resolve)
-                .catch(e => {
-                reject(e);
-            });
-        });
-        return this._shuttingDownPromise;
-    }
-}
-exports.SimpleSpanProcessor = SimpleSpanProcessor;
-
-},{"@opentelemetry/api":33,"@opentelemetry/core":394}],379:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-
-},{}],380:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./Tracer"), exports);
-__exportStar(require("./BasicTracerProvider"), exports);
-__exportStar(require("./platform"), exports);
-__exportStar(require("./export/ConsoleSpanExporter"), exports);
-__exportStar(require("./export/InMemorySpanExporter"), exports);
-__exportStar(require("./export/ReadableSpan"), exports);
-__exportStar(require("./export/SimpleSpanProcessor"), exports);
-__exportStar(require("./export/SpanExporter"), exports);
-__exportStar(require("./export/NoopSpanProcessor"), exports);
-__exportStar(require("./Span"), exports);
-__exportStar(require("./SpanProcessor"), exports);
-__exportStar(require("./TimedEvent"), exports);
-__exportStar(require("./types"), exports);
-
-},{"./BasicTracerProvider":365,"./Span":367,"./SpanProcessor":368,"./TimedEvent":369,"./Tracer":370,"./export/ConsoleSpanExporter":374,"./export/InMemorySpanExporter":375,"./export/NoopSpanProcessor":376,"./export/ReadableSpan":377,"./export/SimpleSpanProcessor":378,"./export/SpanExporter":379,"./platform":382,"./types":383}],381:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BatchSpanProcessor = void 0;
-const BatchSpanProcessorBase_1 = require("../../../export/BatchSpanProcessorBase");
-class BatchSpanProcessor extends BatchSpanProcessorBase_1.BatchSpanProcessorBase {
-    constructor(_exporter, config) {
-        super(_exporter, config);
-        this.onInit(config);
-    }
-    onInit(config) {
-        if ((config === null || config === void 0 ? void 0 : config.disableAutoFlushOnDocumentHide) !== true && document != null) {
-            this._visibilityChangeListener = () => {
-                if (document.visibilityState === 'hidden') {
-                    void this.forceFlush();
-                }
-            };
-            this._pageHideListener = () => {
-                void this.forceFlush();
-            };
-            document.addEventListener('visibilitychange', this._visibilityChangeListener);
-            // use 'pagehide' event as a fallback for Safari; see https://bugs.webkit.org/show_bug.cgi?id=116769
-            document.addEventListener('pagehide', this._pageHideListener);
-        }
-    }
-    onShutdown() {
-        if (this._visibilityChangeListener) {
-            document.removeEventListener('visibilitychange', this._visibilityChangeListener);
-        }
-        if (this._pageHideListener) {
-            document.removeEventListener('pagehide', this._pageHideListener);
-        }
-    }
-}
-exports.BatchSpanProcessor = BatchSpanProcessor;
-
-},{"../../../export/BatchSpanProcessorBase":373}],382:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./export/BatchSpanProcessor"), exports);
-
-},{"./export/BatchSpanProcessor":381}],383:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],384:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.mergeConfig = void 0;
-const core_1 = require("@opentelemetry/core");
-const config_1 = require("./config");
-/**
- * Function to merge Default configuration (as specified in './config') with
- * user provided configurations.
- */
-function mergeConfig(userConfig) {
-    const perInstanceDefaults = {
-        sampler: config_1.buildSamplerFromEnv(),
-    };
-    const target = Object.assign({}, config_1.DEFAULT_CONFIG, perInstanceDefaults, userConfig);
-    target.generalLimits = Object.assign({}, config_1.DEFAULT_CONFIG.generalLimits, userConfig.generalLimits || {});
-    target.spanLimits = Object.assign({}, config_1.DEFAULT_CONFIG.spanLimits, userConfig.spanLimits || {});
-    /**
-     * When span attribute count limit is not defined, but general attribute count limit is defined
-     * Then, span attribute count limit will be same as general one
-     */
-    if (target.spanLimits.attributeCountLimit === core_1.DEFAULT_ATTRIBUTE_COUNT_LIMIT && target.generalLimits.attributeCountLimit !== core_1.DEFAULT_ATTRIBUTE_COUNT_LIMIT) {
-        target.spanLimits.attributeCountLimit = target.generalLimits.attributeCountLimit;
-    }
-    /**
-     * When span attribute value length limit is not defined, but general attribute value length limit is defined
-     * Then, span attribute value length limit will be same as general one
-     */
-    if (target.spanLimits.attributeValueLengthLimit === core_1.DEFAULT_ATTRIBUTE_VALUE_LENGTH_LIMIT && target.generalLimits.attributeValueLengthLimit !== core_1.DEFAULT_ATTRIBUTE_VALUE_LENGTH_LIMIT) {
-        target.spanLimits.attributeValueLengthLimit = target.generalLimits.attributeValueLengthLimit;
-    }
-    return target;
-}
-exports.mergeConfig = mergeConfig;
-
-},{"./config":371,"@opentelemetry/core":394}],385:[function(require,module,exports){
-arguments[4][71][0].apply(exports,arguments)
-},{"dup":71}],386:[function(require,module,exports){
-arguments[4][218][0].apply(exports,arguments)
-},{"dup":218}],387:[function(require,module,exports){
-arguments[4][219][0].apply(exports,arguments)
-},{"../../trace/suppress-tracing":413,"../constants":386,"../utils":388,"@opentelemetry/api":33,"dup":219}],388:[function(require,module,exports){
-arguments[4][220][0].apply(exports,arguments)
-},{"./constants":386,"@opentelemetry/api":33,"dup":220}],389:[function(require,module,exports){
-arguments[4][221][0].apply(exports,arguments)
-},{"dup":221}],390:[function(require,module,exports){
-arguments[4][222][0].apply(exports,arguments)
-},{"./logging-error-handler":391,"dup":222}],391:[function(require,module,exports){
-arguments[4][223][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":223}],392:[function(require,module,exports){
-arguments[4][224][0].apply(exports,arguments)
-},{"../platform":400,"dup":224}],393:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],394:[function(require,module,exports){
-arguments[4][226][0].apply(exports,arguments)
-},{"./ExportResult":385,"./baggage/propagation/W3CBaggagePropagator":387,"./baggage/utils":388,"./common/attributes":389,"./common/global-error-handler":390,"./common/logging-error-handler":391,"./common/time":392,"./common/types":393,"./platform":400,"./propagation/composite":404,"./trace/IdGenerator":405,"./trace/TraceState":406,"./trace/W3CTraceContextPropagator":407,"./trace/rpc-metadata":408,"./trace/sampler/AlwaysOffSampler":409,"./trace/sampler/AlwaysOnSampler":410,"./trace/sampler/ParentBasedSampler":411,"./trace/sampler/TraceIdRatioBasedSampler":412,"./trace/suppress-tracing":413,"./utils/environment":414,"./utils/merge":416,"./utils/sampling":417,"./utils/url":418,"./utils/wrap":419,"./version":420,"dup":226}],395:[function(require,module,exports){
-arguments[4][85][0].apply(exports,arguments)
-},{"dup":85}],396:[function(require,module,exports){
-arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],397:[function(require,module,exports){
-arguments[4][229][0].apply(exports,arguments)
-},{"../../utils/environment":414,"./globalThis":398,"dup":229}],398:[function(require,module,exports){
-arguments[4][230][0].apply(exports,arguments)
-},{"dup":230}],399:[function(require,module,exports){
-arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],400:[function(require,module,exports){
-arguments[4][232][0].apply(exports,arguments)
-},{"./RandomIdGenerator":396,"./environment":397,"./globalThis":398,"./hex-to-base64":399,"./performance":401,"./sdk-info":402,"./timer-util":403,"dup":232}],401:[function(require,module,exports){
-arguments[4][92][0].apply(exports,arguments)
-},{"dup":92}],402:[function(require,module,exports){
-arguments[4][234][0].apply(exports,arguments)
-},{"../../version":420,"@opentelemetry/semantic-conventions":428,"dup":234}],403:[function(require,module,exports){
-arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],404:[function(require,module,exports){
-arguments[4][236][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":236}],405:[function(require,module,exports){
-arguments[4][95][0].apply(exports,arguments)
-},{"dup":95}],406:[function(require,module,exports){
-arguments[4][97][0].apply(exports,arguments)
-},{"../internal/validators":395,"dup":97}],407:[function(require,module,exports){
-arguments[4][239][0].apply(exports,arguments)
-},{"./TraceState":406,"./suppress-tracing":413,"@opentelemetry/api":33,"dup":239}],408:[function(require,module,exports){
-arguments[4][240][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":240}],409:[function(require,module,exports){
-arguments[4][98][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":98}],410:[function(require,module,exports){
-arguments[4][99][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":99}],411:[function(require,module,exports){
-arguments[4][243][0].apply(exports,arguments)
-},{"../../common/global-error-handler":390,"./AlwaysOffSampler":409,"./AlwaysOnSampler":410,"@opentelemetry/api":33,"dup":243}],412:[function(require,module,exports){
-arguments[4][244][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":244}],413:[function(require,module,exports){
-arguments[4][245][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":245}],414:[function(require,module,exports){
-arguments[4][246][0].apply(exports,arguments)
-},{"./sampling":417,"@opentelemetry/api":33,"dup":246}],415:[function(require,module,exports){
-arguments[4][247][0].apply(exports,arguments)
-},{"dup":247}],416:[function(require,module,exports){
-arguments[4][248][0].apply(exports,arguments)
-},{"./lodash.merge":415,"dup":248}],417:[function(require,module,exports){
-arguments[4][249][0].apply(exports,arguments)
-},{"dup":249}],418:[function(require,module,exports){
-arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],419:[function(require,module,exports){
-arguments[4][105][0].apply(exports,arguments)
-},{"dup":105}],420:[function(require,module,exports){
-arguments[4][252][0].apply(exports,arguments)
-},{"dup":252}],421:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Resource = void 0;
-const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
-const core_1 = require("@opentelemetry/core");
-const platform_1 = require("./platform");
-/**
- * A Resource describes the entity for which a signals (metrics or trace) are
- * collected.
- */
-class Resource {
-    constructor(
-    /**
-     * A dictionary of attributes with string keys and values that provide
-     * information about the entity as numbers, strings or booleans
-     * TODO: Consider to add check/validation on attributes.
-     */
-    attributes) {
-        this.attributes = attributes;
-    }
-    /**
-     * Returns an empty Resource
-     */
-    static empty() {
-        return Resource.EMPTY;
-    }
-    /**
-     * Returns a Resource that indentifies the SDK in use.
-     */
-    static default() {
-        return new Resource({
-            [semantic_conventions_1.SemanticResourceAttributes.SERVICE_NAME]: platform_1.defaultServiceName(),
-            [semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_LANGUAGE]: core_1.SDK_INFO[semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_LANGUAGE],
-            [semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_NAME]: core_1.SDK_INFO[semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_NAME],
-            [semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_VERSION]: core_1.SDK_INFO[semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_VERSION],
-        });
-    }
-    /**
-     * Returns a new, merged {@link Resource} by merging the current Resource
-     * with the other Resource. In case of a collision, other Resource takes
-     * precedence.
-     *
-     * @param other the Resource that will be merged with this.
-     * @returns the newly merged Resource.
-     */
-    merge(other) {
-        if (!other || !Object.keys(other.attributes).length)
-            return this;
-        // SpanAttributes from resource overwrite attributes from other resource.
-        const mergedAttributes = Object.assign({}, this.attributes, other.attributes);
-        return new Resource(mergedAttributes);
-    }
-}
-exports.Resource = Resource;
-Resource.EMPTY = new Resource({});
-
-},{"./platform":426,"@opentelemetry/core":394,"@opentelemetry/semantic-conventions":428}],422:[function(require,module,exports){
-arguments[4][359][0].apply(exports,arguments)
-},{"dup":359}],423:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./Resource"), exports);
-__exportStar(require("./platform"), exports);
-__exportStar(require("./types"), exports);
-__exportStar(require("./config"), exports);
-
-},{"./Resource":421,"./config":422,"./platform":426,"./types":427}],424:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.defaultServiceName = void 0;
-function defaultServiceName() {
-    return 'unknown_service';
-}
-exports.defaultServiceName = defaultServiceName;
-
-},{}],425:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.detectResources = void 0;
-const Resource_1 = require("../../Resource");
-/**
- * Detects resources for the browser platform, which is currently only the
- * telemetry SDK resource. More could be added in the future. This method
- * is async to match the signature of corresponding method for node.
- */
-const detectResources = async () => {
-    return Resource_1.Resource.empty();
-};
-exports.detectResources = detectResources;
-
-},{"../../Resource":421}],426:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./default-service-name"), exports);
-__exportStar(require("./detect-resources"), exports);
-
-},{"./default-service-name":424,"./detect-resources":425}],427:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],428:[function(require,module,exports){
-arguments[4][253][0].apply(exports,arguments)
-},{"./resource":430,"./trace":432,"dup":253}],429:[function(require,module,exports){
-arguments[4][254][0].apply(exports,arguments)
-},{"dup":254}],430:[function(require,module,exports){
-arguments[4][255][0].apply(exports,arguments)
-},{"./SemanticResourceAttributes":429,"dup":255}],431:[function(require,module,exports){
-arguments[4][256][0].apply(exports,arguments)
-},{"dup":256}],432:[function(require,module,exports){
-arguments[4][257][0].apply(exports,arguments)
-},{"./SemanticAttributes":431,"dup":257}],433:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.StackContextManager = void 0;
-const api_1 = require("@opentelemetry/api");
-/**
- * Stack Context Manager for managing the state in web
- * it doesn't fully support the async calls though
- */
-class StackContextManager {
-    constructor() {
-        /**
-         * whether the context manager is enabled or not
-         */
-        this._enabled = false;
-        /**
-         * Keeps the reference to current context
-         */
-        this._currentContext = api_1.ROOT_CONTEXT;
-    }
-    /**
-     *
-     * @param context
-     * @param target Function to be executed within the context
-     */
-    _bindFunction(context = api_1.ROOT_CONTEXT, target) {
-        const manager = this;
-        const contextWrapper = function (...args) {
-            return manager.with(context, () => target.apply(this, args));
-        };
-        Object.defineProperty(contextWrapper, 'length', {
-            enumerable: false,
-            configurable: true,
-            writable: false,
-            value: target.length,
-        });
-        return contextWrapper;
-    }
-    /**
-     * Returns the active context
-     */
-    active() {
-        return this._currentContext;
-    }
-    /**
-     * Binds a the certain context or the active one to the target function and then returns the target
-     * @param context A context (span) to be bind to target
-     * @param target a function or event emitter. When target or one of its callbacks is called,
-     *  the provided context will be used as the active context for the duration of the call.
-     */
-    bind(context, target) {
-        // if no specific context to propagate is given, we use the current one
-        if (context === undefined) {
-            context = this.active();
-        }
-        if (typeof target === 'function') {
-            return this._bindFunction(context, target);
-        }
-        return target;
-    }
-    /**
-     * Disable the context manager (clears the current context)
-     */
-    disable() {
-        this._currentContext = api_1.ROOT_CONTEXT;
-        this._enabled = false;
-        return this;
-    }
-    /**
-     * Enables the context manager and creates a default(root) context
-     */
-    enable() {
-        if (this._enabled) {
-            return this;
-        }
-        this._enabled = true;
-        this._currentContext = api_1.ROOT_CONTEXT;
-        return this;
-    }
-    /**
-     * Calls the callback function [fn] with the provided [context]. If [context] is undefined then it will use the window.
-     * The context will be set as active
-     * @param context
-     * @param fn Callback function
-     * @param thisArg optional receiver to be used for calling fn
-     * @param args optional arguments forwarded to fn
-     */
-    with(context, fn, thisArg, ...args) {
-        const previousContext = this._currentContext;
-        this._currentContext = context || api_1.ROOT_CONTEXT;
-        try {
-            return fn.call(thisArg, ...args);
-        }
-        finally {
-            this._currentContext = previousContext;
-        }
-    }
-}
-exports.StackContextManager = StackContextManager;
-
-},{"@opentelemetry/api":33}],434:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WebTracerProvider = void 0;
-const sdk_trace_base_1 = require("@opentelemetry/sdk-trace-base");
-const StackContextManager_1 = require("./StackContextManager");
-/**
- * This class represents a web tracer with {@link StackContextManager}
- */
-class WebTracerProvider extends sdk_trace_base_1.BasicTracerProvider {
-    /**
-     * Constructs a new Tracer instance.
-     * @param config Web Tracer config
-     */
-    constructor(config = {}) {
-        super(config);
-        if (config.contextManager) {
-            throw ('contextManager should be defined in register method not in' +
-                ' constructor');
-        }
-        if (config.propagator) {
-            throw 'propagator should be defined in register method not in constructor';
-        }
-    }
-    /**
-     * Register this TracerProvider for use with the OpenTelemetry API.
-     * Undefined values may be replaced with defaults, and
-     * null values will be skipped.
-     *
-     * @param config Configuration object for SDK registration
-     */
-    register(config = {}) {
-        if (config.contextManager === undefined) {
-            config.contextManager = new StackContextManager_1.StackContextManager();
-        }
-        if (config.contextManager) {
-            config.contextManager.enable();
-        }
-        super.register(config);
-    }
-}
-exports.WebTracerProvider = WebTracerProvider;
-
-},{"./StackContextManager":433,"@opentelemetry/sdk-trace-base":380}],435:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PerformanceTimingNames = void 0;
-var PerformanceTimingNames;
-(function (PerformanceTimingNames) {
-    PerformanceTimingNames["CONNECT_END"] = "connectEnd";
-    PerformanceTimingNames["CONNECT_START"] = "connectStart";
-    PerformanceTimingNames["DECODED_BODY_SIZE"] = "decodedBodySize";
-    PerformanceTimingNames["DOM_COMPLETE"] = "domComplete";
-    PerformanceTimingNames["DOM_CONTENT_LOADED_EVENT_END"] = "domContentLoadedEventEnd";
-    PerformanceTimingNames["DOM_CONTENT_LOADED_EVENT_START"] = "domContentLoadedEventStart";
-    PerformanceTimingNames["DOM_INTERACTIVE"] = "domInteractive";
-    PerformanceTimingNames["DOMAIN_LOOKUP_END"] = "domainLookupEnd";
-    PerformanceTimingNames["DOMAIN_LOOKUP_START"] = "domainLookupStart";
-    PerformanceTimingNames["ENCODED_BODY_SIZE"] = "encodedBodySize";
-    PerformanceTimingNames["FETCH_START"] = "fetchStart";
-    PerformanceTimingNames["LOAD_EVENT_END"] = "loadEventEnd";
-    PerformanceTimingNames["LOAD_EVENT_START"] = "loadEventStart";
-    PerformanceTimingNames["NAVIGATION_START"] = "navigationStart";
-    PerformanceTimingNames["REDIRECT_END"] = "redirectEnd";
-    PerformanceTimingNames["REDIRECT_START"] = "redirectStart";
-    PerformanceTimingNames["REQUEST_START"] = "requestStart";
-    PerformanceTimingNames["RESPONSE_END"] = "responseEnd";
-    PerformanceTimingNames["RESPONSE_START"] = "responseStart";
-    PerformanceTimingNames["SECURE_CONNECTION_START"] = "secureConnectionStart";
-    PerformanceTimingNames["UNLOAD_EVENT_END"] = "unloadEventEnd";
-    PerformanceTimingNames["UNLOAD_EVENT_START"] = "unloadEventStart";
-})(PerformanceTimingNames = exports.PerformanceTimingNames || (exports.PerformanceTimingNames = {}));
-
-},{}],436:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./WebTracerProvider"), exports);
-__exportStar(require("./StackContextManager"), exports);
-__exportStar(require("./enums/PerformanceTimingNames"), exports);
-__exportStar(require("./types"), exports);
-__exportStar(require("./utils"), exports);
-
-},{"./StackContextManager":433,"./WebTracerProvider":434,"./enums/PerformanceTimingNames":435,"./types":437,"./utils":438}],437:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-const PerformanceTimingNames_1 = require("./enums/PerformanceTimingNames");
-
-},{"./enums/PerformanceTimingNames":435}],438:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.shouldPropagateTraceHeaders = exports.getElementXPath = exports.parseUrl = exports.getResource = exports.sortResources = exports.addSpanNetworkEvents = exports.addSpanNetworkEvent = exports.hasKey = exports.getUrlNormalizingAnchor = void 0;
-const PerformanceTimingNames_1 = require("./enums/PerformanceTimingNames");
-const core_1 = require("@opentelemetry/core");
-const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
-// Used to normalize relative URLs
-let a;
-function getUrlNormalizingAnchor() {
-    if (!a) {
-        a = document.createElement('a');
-    }
-    return a;
-}
-exports.getUrlNormalizingAnchor = getUrlNormalizingAnchor;
-/**
- * Helper function to be able to use enum as typed key in type and in interface when using forEach
- * @param obj
- * @param key
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function hasKey(obj, key) {
-    return key in obj;
-}
-exports.hasKey = hasKey;
-/**
- * Helper function for starting an event on span based on {@link PerformanceEntries}
- * @param span
- * @param performanceName name of performance entry for time start
- * @param entries
- */
-function addSpanNetworkEvent(span, performanceName, entries) {
-    if (hasKey(entries, performanceName) &&
-        typeof entries[performanceName] === 'number') {
-        span.addEvent(performanceName, entries[performanceName]);
-        return span;
-    }
-    return undefined;
-}
-exports.addSpanNetworkEvent = addSpanNetworkEvent;
-/**
- * Helper function for adding network events
- * @param span
- * @param resource
- */
-function addSpanNetworkEvents(span, resource) {
-    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START, resource);
-    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.DOMAIN_LOOKUP_START, resource);
-    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.DOMAIN_LOOKUP_END, resource);
-    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.CONNECT_START, resource);
-    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.SECURE_CONNECTION_START, resource);
-    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.CONNECT_END, resource);
-    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.REQUEST_START, resource);
-    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_START, resource);
-    addSpanNetworkEvent(span, PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_END, resource);
-    const encodedLength = resource[PerformanceTimingNames_1.PerformanceTimingNames.ENCODED_BODY_SIZE];
-    if (encodedLength !== undefined) {
-        span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_RESPONSE_CONTENT_LENGTH, encodedLength);
-    }
-    const decodedLength = resource[PerformanceTimingNames_1.PerformanceTimingNames.DECODED_BODY_SIZE];
-    // Spec: Not set if transport encoding not used (in which case encoded and decoded sizes match)
-    if (decodedLength !== undefined && encodedLength !== decodedLength) {
-        span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_RESPONSE_CONTENT_LENGTH_UNCOMPRESSED, decodedLength);
-    }
-}
-exports.addSpanNetworkEvents = addSpanNetworkEvents;
-/**
- * sort resources by startTime
- * @param filteredResources
- */
-function sortResources(filteredResources) {
-    return filteredResources.slice().sort((a, b) => {
-        const valueA = a[PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START];
-        const valueB = b[PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START];
-        if (valueA > valueB) {
-            return 1;
-        }
-        else if (valueA < valueB) {
-            return -1;
-        }
-        return 0;
-    });
-}
-exports.sortResources = sortResources;
-/**
- * Get closest performance resource ignoring the resources that have been
- * already used.
- * @param spanUrl
- * @param startTimeHR
- * @param endTimeHR
- * @param resources
- * @param ignoredResources
- * @param initiatorType
- */
-function getResource(spanUrl, startTimeHR, endTimeHR, resources, ignoredResources = new WeakSet(), initiatorType) {
-    // de-relativize the URL before usage (does no harm to absolute URLs)
-    const urlNormalizingAnchor = getUrlNormalizingAnchor();
-    urlNormalizingAnchor.href = spanUrl;
-    spanUrl = urlNormalizingAnchor.href;
-    const filteredResources = filterResourcesForSpan(spanUrl, startTimeHR, endTimeHR, resources, ignoredResources, initiatorType);
-    if (filteredResources.length === 0) {
-        return {
-            mainRequest: undefined,
-        };
-    }
-    if (filteredResources.length === 1) {
-        return {
-            mainRequest: filteredResources[0],
-        };
-    }
-    const sorted = sortResources(filteredResources);
-    const parsedSpanUrl = parseUrl(spanUrl);
-    if (parsedSpanUrl.origin !== window.location.origin && sorted.length > 1) {
-        let corsPreFlightRequest = sorted[0];
-        let mainRequest = findMainRequest(sorted, corsPreFlightRequest[PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_END], endTimeHR);
-        const responseEnd = corsPreFlightRequest[PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_END];
-        const fetchStart = mainRequest[PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START];
-        // no corsPreFlightRequest
-        if (fetchStart < responseEnd) {
-            mainRequest = corsPreFlightRequest;
-            corsPreFlightRequest = undefined;
-        }
-        return {
-            corsPreFlightRequest,
-            mainRequest,
-        };
-    }
-    else {
-        return {
-            mainRequest: filteredResources[0],
-        };
-    }
-}
-exports.getResource = getResource;
-/**
- * Will find the main request skipping the cors pre flight requests
- * @param resources
- * @param corsPreFlightRequestEndTime
- * @param spanEndTimeHR
- */
-function findMainRequest(resources, corsPreFlightRequestEndTime, spanEndTimeHR) {
-    const spanEndTime = core_1.hrTimeToNanoseconds(spanEndTimeHR);
-    const minTime = core_1.hrTimeToNanoseconds(core_1.timeInputToHrTime(corsPreFlightRequestEndTime));
-    let mainRequest = resources[1];
-    let bestGap;
-    const length = resources.length;
-    for (let i = 1; i < length; i++) {
-        const resource = resources[i];
-        const resourceStartTime = core_1.hrTimeToNanoseconds(core_1.timeInputToHrTime(resource[PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START]));
-        const resourceEndTime = core_1.hrTimeToNanoseconds(core_1.timeInputToHrTime(resource[PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_END]));
-        const currentGap = spanEndTime - resourceEndTime;
-        if (resourceStartTime >= minTime && (!bestGap || currentGap < bestGap)) {
-            bestGap = currentGap;
-            mainRequest = resource;
-        }
-    }
-    return mainRequest;
-}
-/**
- * Filter all resources that has started and finished according to span start time and end time.
- *     It will return the closest resource to a start time
- * @param spanUrl
- * @param startTimeHR
- * @param endTimeHR
- * @param resources
- * @param ignoredResources
- */
-function filterResourcesForSpan(spanUrl, startTimeHR, endTimeHR, resources, ignoredResources, initiatorType) {
-    const startTime = core_1.hrTimeToNanoseconds(startTimeHR);
-    const endTime = core_1.hrTimeToNanoseconds(endTimeHR);
-    let filteredResources = resources.filter(resource => {
-        const resourceStartTime = core_1.hrTimeToNanoseconds(core_1.timeInputToHrTime(resource[PerformanceTimingNames_1.PerformanceTimingNames.FETCH_START]));
-        const resourceEndTime = core_1.hrTimeToNanoseconds(core_1.timeInputToHrTime(resource[PerformanceTimingNames_1.PerformanceTimingNames.RESPONSE_END]));
-        return (resource.initiatorType.toLowerCase() ===
-            (initiatorType || 'xmlhttprequest') &&
-            resource.name === spanUrl &&
-            resourceStartTime >= startTime &&
-            resourceEndTime <= endTime);
-    });
-    if (filteredResources.length > 0) {
-        filteredResources = filteredResources.filter(resource => {
-            return !ignoredResources.has(resource);
-        });
-    }
-    return filteredResources;
-}
-/**
- * Parses url using anchor element
- * @param url
- */
-function parseUrl(url) {
-    const a = document.createElement('a');
-    a.href = url;
-    return a;
-}
-exports.parseUrl = parseUrl;
-/**
- * Get element XPath
- * @param target - target element
- * @param optimised - when id attribute of element is present the xpath can be
- * simplified to contain id
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getElementXPath(target, optimised) {
-    if (target.nodeType === Node.DOCUMENT_NODE) {
-        return '/';
-    }
-    const targetValue = getNodeValue(target, optimised);
-    if (optimised && targetValue.indexOf('@id') > 0) {
-        return targetValue;
-    }
-    let xpath = '';
-    if (target.parentNode) {
-        xpath += getElementXPath(target.parentNode, false);
-    }
-    xpath += targetValue;
-    return xpath;
-}
-exports.getElementXPath = getElementXPath;
-/**
- * get node index within the siblings
- * @param target
- */
-function getNodeIndex(target) {
-    if (!target.parentNode) {
-        return 0;
-    }
-    const allowedTypes = [target.nodeType];
-    if (target.nodeType === Node.CDATA_SECTION_NODE) {
-        allowedTypes.push(Node.TEXT_NODE);
-    }
-    let elements = Array.from(target.parentNode.childNodes);
-    elements = elements.filter((element) => {
-        const localName = element.localName;
-        return (allowedTypes.indexOf(element.nodeType) >= 0 &&
-            localName === target.localName);
-    });
-    if (elements.length >= 1) {
-        return elements.indexOf(target) + 1; // xpath starts from 1
-    }
-    // if there are no other similar child xpath doesn't need index
-    return 0;
-}
-/**
- * get node value for xpath
- * @param target
- * @param optimised
- */
-function getNodeValue(target, optimised) {
-    const nodeType = target.nodeType;
-    const index = getNodeIndex(target);
-    let nodeValue = '';
-    if (nodeType === Node.ELEMENT_NODE) {
-        const id = target.getAttribute('id');
-        if (optimised && id) {
-            return `//*[@id="${id}"]`;
-        }
-        nodeValue = target.localName;
-    }
-    else if (nodeType === Node.TEXT_NODE ||
-        nodeType === Node.CDATA_SECTION_NODE) {
-        nodeValue = 'text()';
-    }
-    else if (nodeType === Node.COMMENT_NODE) {
-        nodeValue = 'comment()';
-    }
-    else {
-        return '';
-    }
-    // if index is 1 it can be omitted in xpath
-    if (nodeValue && index > 1) {
-        return `/${nodeValue}[${index}]`;
-    }
-    return `/${nodeValue}`;
-}
-/**
- * Checks if trace headers should be propagated
- * @param spanUrl
- * @private
- */
-function shouldPropagateTraceHeaders(spanUrl, propagateTraceHeaderCorsUrls) {
-    let propagateTraceHeaderUrls = propagateTraceHeaderCorsUrls || [];
-    if (typeof propagateTraceHeaderUrls === 'string' ||
-        propagateTraceHeaderUrls instanceof RegExp) {
-        propagateTraceHeaderUrls = [propagateTraceHeaderUrls];
-    }
-    const parsedSpanUrl = parseUrl(spanUrl);
-    if (parsedSpanUrl.origin === window.location.origin) {
-        return true;
-    }
-    else {
-        return propagateTraceHeaderUrls.some(propagateTraceHeaderUrl => core_1.urlMatches(spanUrl, propagateTraceHeaderUrl));
-    }
-}
-exports.shouldPropagateTraceHeaders = shouldPropagateTraceHeaders;
-
-},{"./enums/PerformanceTimingNames":435,"@opentelemetry/core":448,"@opentelemetry/semantic-conventions":475}],439:[function(require,module,exports){
-arguments[4][71][0].apply(exports,arguments)
-},{"dup":71}],440:[function(require,module,exports){
-arguments[4][218][0].apply(exports,arguments)
-},{"dup":218}],441:[function(require,module,exports){
-arguments[4][219][0].apply(exports,arguments)
-},{"../../trace/suppress-tracing":467,"../constants":440,"../utils":442,"@opentelemetry/api":33,"dup":219}],442:[function(require,module,exports){
-arguments[4][220][0].apply(exports,arguments)
-},{"./constants":440,"@opentelemetry/api":33,"dup":220}],443:[function(require,module,exports){
-arguments[4][221][0].apply(exports,arguments)
-},{"dup":221}],444:[function(require,module,exports){
-arguments[4][222][0].apply(exports,arguments)
-},{"./logging-error-handler":445,"dup":222}],445:[function(require,module,exports){
-arguments[4][223][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":223}],446:[function(require,module,exports){
-arguments[4][224][0].apply(exports,arguments)
-},{"../platform":454,"dup":224}],447:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],448:[function(require,module,exports){
-arguments[4][226][0].apply(exports,arguments)
-},{"./ExportResult":439,"./baggage/propagation/W3CBaggagePropagator":441,"./baggage/utils":442,"./common/attributes":443,"./common/global-error-handler":444,"./common/logging-error-handler":445,"./common/time":446,"./common/types":447,"./platform":454,"./propagation/composite":458,"./trace/IdGenerator":459,"./trace/TraceState":460,"./trace/W3CTraceContextPropagator":461,"./trace/rpc-metadata":462,"./trace/sampler/AlwaysOffSampler":463,"./trace/sampler/AlwaysOnSampler":464,"./trace/sampler/ParentBasedSampler":465,"./trace/sampler/TraceIdRatioBasedSampler":466,"./trace/suppress-tracing":467,"./utils/environment":468,"./utils/merge":470,"./utils/sampling":471,"./utils/url":472,"./utils/wrap":473,"./version":474,"dup":226}],449:[function(require,module,exports){
-arguments[4][85][0].apply(exports,arguments)
-},{"dup":85}],450:[function(require,module,exports){
-arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],451:[function(require,module,exports){
-arguments[4][229][0].apply(exports,arguments)
-},{"../../utils/environment":468,"./globalThis":452,"dup":229}],452:[function(require,module,exports){
-arguments[4][230][0].apply(exports,arguments)
-},{"dup":230}],453:[function(require,module,exports){
-arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],454:[function(require,module,exports){
-arguments[4][232][0].apply(exports,arguments)
-},{"./RandomIdGenerator":450,"./environment":451,"./globalThis":452,"./hex-to-base64":453,"./performance":455,"./sdk-info":456,"./timer-util":457,"dup":232}],455:[function(require,module,exports){
-arguments[4][92][0].apply(exports,arguments)
-},{"dup":92}],456:[function(require,module,exports){
-arguments[4][234][0].apply(exports,arguments)
-},{"../../version":474,"@opentelemetry/semantic-conventions":475,"dup":234}],457:[function(require,module,exports){
-arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],458:[function(require,module,exports){
-arguments[4][236][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":236}],459:[function(require,module,exports){
-arguments[4][95][0].apply(exports,arguments)
-},{"dup":95}],460:[function(require,module,exports){
-arguments[4][97][0].apply(exports,arguments)
-},{"../internal/validators":449,"dup":97}],461:[function(require,module,exports){
-arguments[4][239][0].apply(exports,arguments)
-},{"./TraceState":460,"./suppress-tracing":467,"@opentelemetry/api":33,"dup":239}],462:[function(require,module,exports){
-arguments[4][240][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":240}],463:[function(require,module,exports){
-arguments[4][98][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":98}],464:[function(require,module,exports){
-arguments[4][99][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":99}],465:[function(require,module,exports){
-arguments[4][243][0].apply(exports,arguments)
-},{"../../common/global-error-handler":444,"./AlwaysOffSampler":463,"./AlwaysOnSampler":464,"@opentelemetry/api":33,"dup":243}],466:[function(require,module,exports){
-arguments[4][244][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":244}],467:[function(require,module,exports){
-arguments[4][245][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":245}],468:[function(require,module,exports){
-arguments[4][246][0].apply(exports,arguments)
-},{"./sampling":471,"@opentelemetry/api":33,"dup":246}],469:[function(require,module,exports){
-arguments[4][247][0].apply(exports,arguments)
-},{"dup":247}],470:[function(require,module,exports){
-arguments[4][248][0].apply(exports,arguments)
-},{"./lodash.merge":469,"dup":248}],471:[function(require,module,exports){
-arguments[4][249][0].apply(exports,arguments)
-},{"dup":249}],472:[function(require,module,exports){
-arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],473:[function(require,module,exports){
-arguments[4][105][0].apply(exports,arguments)
-},{"dup":105}],474:[function(require,module,exports){
-arguments[4][252][0].apply(exports,arguments)
-},{"dup":252}],475:[function(require,module,exports){
-arguments[4][253][0].apply(exports,arguments)
-},{"./resource":477,"./trace":479,"dup":253}],476:[function(require,module,exports){
-arguments[4][254][0].apply(exports,arguments)
-},{"dup":254}],477:[function(require,module,exports){
-arguments[4][255][0].apply(exports,arguments)
-},{"./SemanticResourceAttributes":476,"dup":255}],478:[function(require,module,exports){
-arguments[4][256][0].apply(exports,arguments)
-},{"dup":256}],479:[function(require,module,exports){
-arguments[4][257][0].apply(exports,arguments)
-},{"./SemanticAttributes":478,"dup":257}],480:[function(require,module,exports){
+},{"./SemanticAttributes":386}],388:[function(require,module,exports){
 'use strict'
 
 function isFunction (funktion) {
@@ -14910,7 +11646,7 @@ shimmer.massUnwrap = massUnwrap
 
 module.exports = shimmer
 
-},{}],481:[function(require,module,exports){
+},{}],389:[function(require,module,exports){
 (function (global){(function (){
 'use strict';
 /**
