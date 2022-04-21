@@ -24,7 +24,7 @@ var hello_proto = grpc.loadPackageDefinition(packageDefinition).helloworld;
 
 var client = new hello_proto.Greeter(process.env.CHARLIE_SVC,
                                        grpc.credentials.createInsecure());
-app.use('/beta',express.static(path.resolve(__dirname,'./public')));
+
 app.post('/beta', (req, res) => {
     // console.log("/beta called");
 
@@ -33,18 +33,6 @@ app.post('/beta', (req, res) => {
         // console.log('Greeting:', response.message);
         res.json({"data": `Hello ${name} from Beta Service!`, "charlie_response": response.message});
     });
-})
-
-app.get('/beta', (req,res)=> {
-    res.sendFile(__dirname+'/index.html');
-})
-
-
-
-const products = [{ name: 'Switch' },{ name: 'Ip Phone' },{name: 'Firewall'}];
-
-app.get('/products',(req,res)=> {
-    res.json(products);
 })
 
 app.listen(port, () => {

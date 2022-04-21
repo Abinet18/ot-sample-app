@@ -8,7 +8,7 @@ const { ZoneContextManager } = require('@opentelemetry/context-zone');
 const { registerInstrumentations } = require('@opentelemetry/instrumentation');
 
 const provider = new WebTracerProvider();
-provider.addSpanProcessor(new SimpleSpanProcessor(new ZipkinExporter()));
+provider.addSpanProcessor(new SimpleSpanProcessor(new ZipkinExporter({serviceName:'Browser Services'})));
 provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
 provider.register({
     // Changing default contextManager to use ZoneContextManager - supports asynchronous operations - optional
@@ -46,15 +46,15 @@ const fetchData = () => {
     xhr.open('GET', 'http://localhost:5002/products', true);
     xhr.onload = () => {
         if (xhr.status == 200) {
-            const span = tracer.startSpan('fetching data successful');
+//            const span = tracer.startSpan('fetching data successful');
             const products = JSON.parse(xhr.responseText);
             showProducts(products);
-            span.end();
+//            span.end();
         }
     };
     xhr.onerror = () => {
-        const span = tracer.startSpan('fetching data failed');
-        span.end();
+//        const span = tracer.startSpan('fetching data failed');
+//        span.end();
     }
     xhr.send();
 };

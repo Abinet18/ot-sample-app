@@ -1,0 +1,31 @@
+{
+  "name": "webtracing",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@opentelemetry/context-zone": "^1.0.1",
+    "@opentelemetry/core": "^0.13.0",
+    "@opentelemetry/exporter-zipkin": "^0.13.0",
+    "@opentelemetry/instrumentation": "^0.27.0",
+    "@opentelemetry/instrumentation-document-load": "^0.27.1",
+    "@opentelemetry/instrumentation-user-interaction": "^0.28.1",
+    "@opentelemetry/instrumentation-xml-http-request": "^0.27.0",
+    "@opentelemetry/node": "^0.13.0",
+    "@opentelemetry/plugin-dns": "^0.11.0",
+    "@opentelemetry/plugin-express": "^0.11.0",
+    "@opentelemetry/plugin-http": "^0.13.0",
+    "@opentelemetry/plugin-https": "^0.13.0",
+    "@opentelemetry/sdk-trace-web": "^1.0.1",
+    "@opentelemetry/tracing": "^0.13.0",
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "google-protobuf": "^3.14.0",
+    "request": "^2.88.2"
+  }
+}
