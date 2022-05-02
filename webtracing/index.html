@@ -6,9 +6,12 @@
 </head>
 <body>
 Example of using Web Tracer with document load and xhr instrumentation with console and zipkin exporter <br />
-<button id="btn">Fetch Data</button>
+<button id="btnXHR">Show Products (XHR)</button>
 <h1 class="itemsHeader">List of Products</h1>
-<ul class="list"></ul>
+<ul class="list" id="products"></ul>
+<button id="btnFetch">Show Regions (Fetch)</button>
+<h1 class="itemsHeader">Regions</h1>
+<ul class="list" id="regions"></ul>
 <script type="module" src="document-load.js"></script>
 </body>
 </html>

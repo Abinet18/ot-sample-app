@@ -5,6 +5,7 @@ const { WebTracerProvider } = require('@opentelemetry/sdk-trace-web');
 const { DocumentLoadInstrumentation } = require('@opentelemetry/instrumentation-document-load');
 const { XMLHttpRequestInstrumentation } = require('@opentelemetry/instrumentation-xml-http-request');
 const { UserInteractionInstrumentation } = require('@opentelemetry/instrumentation-user-interaction');
+const  { FetchInstrumentation } = require('@opentelemetry/instrumentation-fetch');
 const { ZoneContextManager } = require('@opentelemetry/context-zone');
 const { registerInstrumentations } = require('@opentelemetry/instrumentation');
 const { Resource } = require('@opentelemetry/resources');
@@ -31,26 +32,39 @@ registerInstrumentations({
     instrumentations: [
         new DocumentLoadInstrumentation(),
         new UserInteractionInstrumentation(),
-        new XMLHttpRequestInstrumentation()
+        new XMLHttpRequestInstrumentation(),
+        new FetchInstrumentation()
     ],
 });
 
-const listEl = document.querySelector('ul');
-let btn = document.getElementById('btn');
+const productListEl = document.querySelector('#products');
+const regionListEl = document.querySelector('#regions');
+let btnXHR = document.getElementById('btnXHR');
+let btnFetch = document.getElementById('btnFetch');
 
 const showProducts = (products) => {
-    listEl.innerHTML = '';
+    productListEl.innerHTML = '';
     for (let i = 0; i < products.length; i++) {
         const li = document.createElement('li');
         li.className = "item";
         li.appendChild(document.createTextNode(`${products[i].name}`));
-        listEl.appendChild(li);
+        productListEl.appendChild(li);
+    }
+}
+
+const showRegions = (regions) => {
+    regionListEl.innerHTML = '';
+    for (let i = 0; i < regions.length; i++) {
+        const li = document.createElement('li');
+        li.className = "item";
+        li.appendChild(document.createTextNode(`${regions[i].name}`));
+        regionListEl.appendChild(li);
     }
 }
 
 
 
-const fetchData = () => {
+const fetchDataXHR = () => {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', 'http://localhost:5002/products', true);
     xhr.onload = () => {
@@ -69,11 +83,24 @@ const fetchData = () => {
     xhr.send();
 };
 
-btn.addEventListener('click', () => {
-    console.log('Fetching data');
+const fetchData = () => {
+ fetch('http://localhost:5002/regions').then((res)=> {
+     res.json().then(data=>{
+         showRegions(data);
+     })
+ })
+};
+
+btnXHR.addEventListener('click', () => {
+    console.log('Fetching products');
+    fetchDataXHR();
+})
+
+btnFetch.addEventListener('click', () => {
+    console.log('Fetching regions');
     fetchData();
 })
-},{"@opentelemetry/context-zone":66,"@opentelemetry/exporter-zipkin":67,"@opentelemetry/instrumentation":235,"@opentelemetry/instrumentation-document-load":112,"@opentelemetry/instrumentation-user-interaction":153,"@opentelemetry/instrumentation-xml-http-request":194,"@opentelemetry/resources":244,"@opentelemetry/sdk-trace-base":300,"@opentelemetry/sdk-trace-web":344,"@opentelemetry/semantic-conventions":383}],2:[function(require,module,exports){
+},{"@opentelemetry/context-zone":66,"@opentelemetry/exporter-zipkin":67,"@opentelemetry/instrumentation":275,"@opentelemetry/instrumentation-document-load":112,"@opentelemetry/instrumentation-fetch":154,"@opentelemetry/instrumentation-user-interaction":193,"@opentelemetry/instrumentation-xml-http-request":234,"@opentelemetry/resources":284,"@opentelemetry/sdk-trace-base":340,"@opentelemetry/sdk-trace-web":384,"@opentelemetry/semantic-conventions":423}],2:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -3048,7 +3075,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("@opentelemetry/context-zone-peer-dep"), exports);
 require("zone.js");
 
-},{"@opentelemetry/context-zone-peer-dep":63,"zone.js":389}],67:[function(require,module,exports){
+},{"@opentelemetry/context-zone-peer-dep":63,"zone.js":429}],67:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -3471,7 +3498,7 @@ class ZipkinExporter {
 }
 exports.ZipkinExporter = ZipkinExporter;
 
-},{"./platform/index":68,"./transform":70,"./utils":72,"@opentelemetry/api":33,"@opentelemetry/core":83,"@opentelemetry/semantic-conventions":383}],74:[function(require,module,exports){
+},{"./platform/index":68,"./transform":70,"./utils":72,"@opentelemetry/api":33,"@opentelemetry/core":83,"@opentelemetry/semantic-conventions":423}],74:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -4343,7 +4370,7 @@ exports.SDK_INFO = {
     [semantic_conventions_1.SemanticResourceAttributes.TELEMETRY_SDK_VERSION]: version_1.VERSION,
 };
 
-},{"../../version":109,"@opentelemetry/semantic-conventions":383}],92:[function(require,module,exports){
+},{"../../version":109,"@opentelemetry/semantic-conventions":423}],92:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.unrefTimer = void 0;
@@ -5835,7 +5862,7 @@ class DocumentLoadInstrumentation extends instrumentation_1.InstrumentationBase 
 }
 exports.DocumentLoadInstrumentation = DocumentLoadInstrumentation;
 
-},{"./enums/AttributeNames":110,"./utils":114,"./version":115,"@opentelemetry/api":33,"@opentelemetry/core":125,"@opentelemetry/instrumentation":235,"@opentelemetry/sdk-trace-web":344,"@opentelemetry/semantic-conventions":383}],114:[function(require,module,exports){
+},{"./enums/AttributeNames":110,"./utils":114,"./version":115,"@opentelemetry/api":33,"@opentelemetry/core":125,"@opentelemetry/instrumentation":275,"@opentelemetry/sdk-trace-web":384,"@opentelemetry/semantic-conventions":423}],114:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -5908,7 +5935,7 @@ const addSpanPerformancePaintEvents = (span) => {
 };
 exports.addSpanPerformancePaintEvents = addSpanPerformancePaintEvents;
 
-},{"./enums/EventNames":111,"@opentelemetry/core":125,"@opentelemetry/sdk-trace-web":344}],115:[function(require,module,exports){
+},{"./enums/EventNames":111,"@opentelemetry/core":125,"@opentelemetry/sdk-trace-web":384}],115:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -5966,7 +5993,7 @@ arguments[4][89][0].apply(exports,arguments)
 arguments[4][90][0].apply(exports,arguments)
 },{"dup":90}],133:[function(require,module,exports){
 arguments[4][91][0].apply(exports,arguments)
-},{"../../version":151,"@opentelemetry/semantic-conventions":383,"dup":91}],134:[function(require,module,exports){
+},{"../../version":151,"@opentelemetry/semantic-conventions":423,"dup":91}],134:[function(require,module,exports){
 arguments[4][92][0].apply(exports,arguments)
 },{"dup":92}],135:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
@@ -6021,6 +6048,496 @@ arguments[4][109][0].apply(exports,arguments)
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AttributeNames = void 0;
+/**
+ * https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/trace/semantic_conventions/http.md
+ */
+var AttributeNames;
+(function (AttributeNames) {
+    AttributeNames["COMPONENT"] = "component";
+    AttributeNames["HTTP_ERROR_NAME"] = "http.error_name";
+    AttributeNames["HTTP_STATUS_TEXT"] = "http.status_text";
+})(AttributeNames = exports.AttributeNames || (exports.AttributeNames = {}));
+
+},{}],153:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FetchInstrumentation = void 0;
+const api = require("@opentelemetry/api");
+const instrumentation_1 = require("@opentelemetry/instrumentation");
+const core = require("@opentelemetry/core");
+const web = require("@opentelemetry/sdk-trace-web");
+const AttributeNames_1 = require("./enums/AttributeNames");
+const semantic_conventions_1 = require("@opentelemetry/semantic-conventions");
+const version_1 = require("./version");
+// how long to wait for observer to collect information about resources
+// this is needed as event "load" is called before observer
+// hard to say how long it should really wait, seems like 300ms is
+// safe enough
+const OBSERVER_WAIT_TIME_MS = 300;
+/**
+ * This class represents a fetch plugin for auto instrumentation
+ */
+class FetchInstrumentation extends instrumentation_1.InstrumentationBase {
+    constructor(config) {
+        super('@opentelemetry/instrumentation-fetch', version_1.VERSION, config);
+        this.component = 'fetch';
+        this.version = version_1.VERSION;
+        this.moduleName = this.component;
+        this._usedResources = new WeakSet();
+        this._tasksCount = 0;
+    }
+    init() { }
+    _getConfig() {
+        return this._config;
+    }
+    /**
+     * Add cors pre flight child span
+     * @param span
+     * @param corsPreFlightRequest
+     */
+    _addChildSpan(span, corsPreFlightRequest) {
+        const childSpan = this.tracer.startSpan('CORS Preflight', {
+            startTime: corsPreFlightRequest[web.PerformanceTimingNames.FETCH_START],
+        }, api.trace.setSpan(api.context.active(), span));
+        web.addSpanNetworkEvents(childSpan, corsPreFlightRequest);
+        childSpan.end(corsPreFlightRequest[web.PerformanceTimingNames.RESPONSE_END]);
+    }
+    /**
+     * Adds more attributes to span just before ending it
+     * @param span
+     * @param response
+     */
+    _addFinalSpanAttributes(span, response) {
+        const parsedUrl = web.parseUrl(response.url);
+        span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_STATUS_CODE, response.status);
+        if (response.statusText != null) {
+            span.setAttribute(AttributeNames_1.AttributeNames.HTTP_STATUS_TEXT, response.statusText);
+        }
+        span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_HOST, parsedUrl.host);
+        span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_SCHEME, parsedUrl.protocol.replace(':', ''));
+        span.setAttribute(semantic_conventions_1.SemanticAttributes.HTTP_USER_AGENT, navigator.userAgent);
+    }
+    /**
+     * Add headers
+     * @param options
+     * @param spanUrl
+     */
+    _addHeaders(options, spanUrl) {
+        if (!web.shouldPropagateTraceHeaders(spanUrl, this._getConfig().propagateTraceHeaderCorsUrls)) {
+            const headers = {};
+            api.propagation.inject(api.context.active(), headers);
+            if (Object.keys(headers).length > 0) {
+                this._diag.debug('headers inject skipped due to CORS policy');
+            }
+            return;
+        }
+        if (options instanceof Request) {
+            api.propagation.inject(api.context.active(), options.headers, {
+                set: (h, k, v) => h.set(k, typeof v === 'string' ? v : String(v)),
+            });
+        }
+        else if (options.headers instanceof Headers) {
+            api.propagation.inject(api.context.active(), options.headers, {
+                set: (h, k, v) => h.set(k, typeof v === 'string' ? v : String(v)),
+            });
+        }
+        else {
+            const headers = {};
+            api.propagation.inject(api.context.active(), headers);
+            options.headers = Object.assign({}, headers, options.headers || {});
+        }
+    }
+    /**
+     * Clears the resource timings and all resources assigned with spans
+     *     when {@link FetchPluginConfig.clearTimingResources} is
+     *     set to true (default false)
+     * @private
+     */
+    _clearResources() {
+        if (this._tasksCount === 0 && this._getConfig().clearTimingResources) {
+            performance.clearResourceTimings();
+            this._usedResources = new WeakSet();
+        }
+    }
+    /**
+     * Creates a new span
+     * @param url
+     * @param options
+     */
+    _createSpan(url, options = {}) {
+        if (core.isUrlIgnored(url, this._getConfig().ignoreUrls)) {
+            this._diag.debug('ignoring span as url matches ignored url');
+            return;
+        }
+        const method = (options.method || 'GET').toUpperCase();
+        const spanName = `HTTP ${method}`;
+        return this.tracer.startSpan(spanName, {
+            kind: api.SpanKind.CLIENT,
+            attributes: {
+                [AttributeNames_1.AttributeNames.COMPONENT]: this.moduleName,
+                [semantic_conventions_1.SemanticAttributes.HTTP_METHOD]: method,
+                [semantic_conventions_1.SemanticAttributes.HTTP_URL]: url,
+            },
+        });
+    }
+    /**
+     * Finds appropriate resource and add network events to the span
+     * @param span
+     * @param resourcesObserver
+     * @param endTime
+     */
+    _findResourceAndAddNetworkEvents(span, resourcesObserver, endTime) {
+        let resources = resourcesObserver.entries;
+        if (!resources.length) {
+            if (!performance.getEntriesByType) {
+                return;
+            }
+            // fallback - either Observer is not available or it took longer
+            // then OBSERVER_WAIT_TIME_MS and observer didn't collect enough
+            // information
+            resources = performance.getEntriesByType('resource');
+        }
+        const resource = web.getResource(resourcesObserver.spanUrl, resourcesObserver.startTime, endTime, resources, this._usedResources, 'fetch');
+        if (resource.mainRequest) {
+            const mainRequest = resource.mainRequest;
+            this._markResourceAsUsed(mainRequest);
+            const corsPreFlightRequest = resource.corsPreFlightRequest;
+            if (corsPreFlightRequest) {
+                this._addChildSpan(span, corsPreFlightRequest);
+                this._markResourceAsUsed(corsPreFlightRequest);
+            }
+            web.addSpanNetworkEvents(span, mainRequest);
+        }
+    }
+    /**
+     * Marks certain [resource]{@link PerformanceResourceTiming} when information
+     * from this is used to add events to span.
+     * This is done to avoid reusing the same resource again for next span
+     * @param resource
+     */
+    _markResourceAsUsed(resource) {
+        this._usedResources.add(resource);
+    }
+    /**
+     * Finish span, add attributes, network events etc.
+     * @param span
+     * @param spanData
+     * @param response
+     */
+    _endSpan(span, spanData, response) {
+        const endTime = core.hrTime();
+        this._addFinalSpanAttributes(span, response);
+        setTimeout(() => {
+            var _a;
+            (_a = spanData.observer) === null || _a === void 0 ? void 0 : _a.disconnect();
+            this._findResourceAndAddNetworkEvents(span, spanData, endTime);
+            this._tasksCount--;
+            this._clearResources();
+            span.end(endTime);
+        }, OBSERVER_WAIT_TIME_MS);
+    }
+    /**
+     * Patches the constructor of fetch
+     */
+    _patchConstructor() {
+        return original => {
+            const plugin = this;
+            return function patchConstructor(...args) {
+                const url = args[0] instanceof Request ? args[0].url : args[0];
+                const options = args[0] instanceof Request ? args[0] : args[1] || {};
+                const createdSpan = plugin._createSpan(url, options);
+                if (!createdSpan) {
+                    return original.apply(this, args);
+                }
+                const spanData = plugin._prepareSpanData(url);
+                function endSpanOnError(span, error) {
+                    plugin._applyAttributesAfterFetch(span, options, error);
+                    plugin._endSpan(span, spanData, {
+                        status: error.status || 0,
+                        statusText: error.message,
+                        url,
+                    });
+                }
+                function endSpanOnSuccess(span, response) {
+                    plugin._applyAttributesAfterFetch(span, options, response);
+                    if (response.status >= 200 && response.status < 400) {
+                        plugin._endSpan(span, spanData, response);
+                    }
+                    else {
+                        plugin._endSpan(span, spanData, {
+                            status: response.status,
+                            statusText: response.statusText,
+                            url,
+                        });
+                    }
+                }
+                function onSuccess(span, resolve, response) {
+                    try {
+                        const resClone = response.clone();
+                        const resClone4Hook = response.clone();
+                        const body = resClone.body;
+                        if (body) {
+                            const reader = body.getReader();
+                            const read = () => {
+                                reader.read().then(({ done }) => {
+                                    if (done) {
+                                        endSpanOnSuccess(span, resClone4Hook);
+                                    }
+                                    else {
+                                        read();
+                                    }
+                                }, error => {
+                                    endSpanOnError(span, error);
+                                });
+                            };
+                            read();
+                        }
+                        else {
+                            // some older browsers don't have .body implemented
+                            endSpanOnSuccess(span, response);
+                        }
+                    }
+                    finally {
+                        resolve(response);
+                    }
+                }
+                function onError(span, reject, error) {
+                    try {
+                        endSpanOnError(span, error);
+                    }
+                    finally {
+                        reject(error);
+                    }
+                }
+                return new Promise((resolve, reject) => {
+                    return api.context.with(api.trace.setSpan(api.context.active(), createdSpan), () => {
+                        plugin._addHeaders(options, url);
+                        plugin._tasksCount++;
+                        return original
+                            .apply(this, options instanceof Request ? [options] : [url, options])
+                            .then(onSuccess.bind(this, createdSpan, resolve), onError.bind(this, createdSpan, reject));
+                    });
+                });
+            };
+        };
+    }
+    _applyAttributesAfterFetch(span, request, result) {
+        const applyCustomAttributesOnSpan = this._getConfig()
+            .applyCustomAttributesOnSpan;
+        if (applyCustomAttributesOnSpan) {
+            instrumentation_1.safeExecuteInTheMiddle(() => applyCustomAttributesOnSpan(span, request, result), error => {
+                if (!error) {
+                    return;
+                }
+                this._diag.error('applyCustomAttributesOnSpan', error);
+            }, true);
+        }
+    }
+    /**
+     * Prepares a span data - needed later for matching appropriate network
+     *     resources
+     * @param spanUrl
+     */
+    _prepareSpanData(spanUrl) {
+        const startTime = core.hrTime();
+        const entries = [];
+        if (typeof window.PerformanceObserver === 'undefined') {
+            return { entries, startTime, spanUrl };
+        }
+        const observer = new PerformanceObserver(list => {
+            const perfObsEntries = list.getEntries();
+            const urlNormalizingAnchor = web.getUrlNormalizingAnchor();
+            urlNormalizingAnchor.href = spanUrl;
+            perfObsEntries.forEach(entry => {
+                if (entry.initiatorType === 'fetch' &&
+                    entry.name === urlNormalizingAnchor.href) {
+                    entries.push(entry);
+                }
+            });
+        });
+        observer.observe({
+            entryTypes: ['resource'],
+        });
+        return { entries, observer, startTime, spanUrl };
+    }
+    /**
+     * implements enable function
+     */
+    enable() {
+        if (instrumentation_1.isWrapped(window.fetch)) {
+            this._unwrap(window, 'fetch');
+            this._diag.debug('removing previous patch for constructor');
+        }
+        this._wrap(window, 'fetch', this._patchConstructor());
+    }
+    /**
+     * implements unpatch function
+     */
+    disable() {
+        this._unwrap(window, 'fetch');
+        this._usedResources = new WeakSet();
+    }
+}
+exports.FetchInstrumentation = FetchInstrumentation;
+
+},{"./enums/AttributeNames":152,"./version":155,"@opentelemetry/api":33,"@opentelemetry/core":165,"@opentelemetry/instrumentation":275,"@opentelemetry/sdk-trace-web":384,"@opentelemetry/semantic-conventions":423}],154:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./fetch"), exports);
+
+},{"./fetch":153}],155:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.VERSION = void 0;
+// this is autogenerated file, see scripts/version-update.js
+exports.VERSION = '0.27.0';
+
+},{}],156:[function(require,module,exports){
+arguments[4][74][0].apply(exports,arguments)
+},{"dup":74}],157:[function(require,module,exports){
+arguments[4][75][0].apply(exports,arguments)
+},{"dup":75}],158:[function(require,module,exports){
+arguments[4][76][0].apply(exports,arguments)
+},{"../../trace/suppress-tracing":184,"../constants":157,"../utils":159,"@opentelemetry/api":33,"dup":76}],159:[function(require,module,exports){
+arguments[4][77][0].apply(exports,arguments)
+},{"./constants":157,"@opentelemetry/api":33,"dup":77}],160:[function(require,module,exports){
+arguments[4][78][0].apply(exports,arguments)
+},{"dup":78}],161:[function(require,module,exports){
+arguments[4][79][0].apply(exports,arguments)
+},{"./logging-error-handler":162,"dup":79}],162:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":80}],163:[function(require,module,exports){
+arguments[4][81][0].apply(exports,arguments)
+},{"../platform":171,"dup":81}],164:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],165:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"./ExportResult":156,"./baggage/propagation/W3CBaggagePropagator":158,"./baggage/utils":159,"./common/attributes":160,"./common/global-error-handler":161,"./common/logging-error-handler":162,"./common/time":163,"./common/types":164,"./platform":171,"./propagation/composite":175,"./trace/IdGenerator":176,"./trace/TraceState":177,"./trace/W3CTraceContextPropagator":178,"./trace/rpc-metadata":179,"./trace/sampler/AlwaysOffSampler":180,"./trace/sampler/AlwaysOnSampler":181,"./trace/sampler/ParentBasedSampler":182,"./trace/sampler/TraceIdRatioBasedSampler":183,"./trace/suppress-tracing":184,"./utils/environment":185,"./utils/merge":187,"./utils/sampling":188,"./utils/url":189,"./utils/wrap":190,"./version":191,"dup":83}],166:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],167:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85}],168:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"../../utils/environment":185,"./globalThis":169,"dup":86}],169:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],170:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88}],171:[function(require,module,exports){
+arguments[4][89][0].apply(exports,arguments)
+},{"./RandomIdGenerator":167,"./environment":168,"./globalThis":169,"./hex-to-base64":170,"./performance":172,"./sdk-info":173,"./timer-util":174,"dup":89}],172:[function(require,module,exports){
+arguments[4][90][0].apply(exports,arguments)
+},{"dup":90}],173:[function(require,module,exports){
+arguments[4][91][0].apply(exports,arguments)
+},{"../../version":191,"@opentelemetry/semantic-conventions":423,"dup":91}],174:[function(require,module,exports){
+arguments[4][92][0].apply(exports,arguments)
+},{"dup":92}],175:[function(require,module,exports){
+arguments[4][93][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":93}],176:[function(require,module,exports){
+arguments[4][94][0].apply(exports,arguments)
+},{"dup":94}],177:[function(require,module,exports){
+arguments[4][95][0].apply(exports,arguments)
+},{"../internal/validators":166,"dup":95}],178:[function(require,module,exports){
+arguments[4][96][0].apply(exports,arguments)
+},{"./TraceState":177,"./suppress-tracing":184,"@opentelemetry/api":33,"dup":96}],179:[function(require,module,exports){
+arguments[4][97][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":97}],180:[function(require,module,exports){
+arguments[4][98][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":98}],181:[function(require,module,exports){
+arguments[4][99][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":99}],182:[function(require,module,exports){
+arguments[4][100][0].apply(exports,arguments)
+},{"../../common/global-error-handler":161,"./AlwaysOffSampler":180,"./AlwaysOnSampler":181,"@opentelemetry/api":33,"dup":100}],183:[function(require,module,exports){
+arguments[4][101][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":101}],184:[function(require,module,exports){
+arguments[4][102][0].apply(exports,arguments)
+},{"@opentelemetry/api":33,"dup":102}],185:[function(require,module,exports){
+arguments[4][103][0].apply(exports,arguments)
+},{"./sampling":188,"@opentelemetry/api":33,"dup":103}],186:[function(require,module,exports){
+arguments[4][104][0].apply(exports,arguments)
+},{"dup":104}],187:[function(require,module,exports){
+arguments[4][105][0].apply(exports,arguments)
+},{"./lodash.merge":186,"dup":105}],188:[function(require,module,exports){
+arguments[4][106][0].apply(exports,arguments)
+},{"dup":106}],189:[function(require,module,exports){
+arguments[4][107][0].apply(exports,arguments)
+},{"dup":107}],190:[function(require,module,exports){
+arguments[4][108][0].apply(exports,arguments)
+},{"dup":108}],191:[function(require,module,exports){
+arguments[4][109][0].apply(exports,arguments)
+},{"dup":109}],192:[function(require,module,exports){
+"use strict";
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AttributeNames = void 0;
 var AttributeNames;
 (function (AttributeNames) {
     AttributeNames["COMPONENT"] = "component";
@@ -6032,9 +6549,9 @@ var AttributeNames;
     AttributeNames["HTTP_USER_AGENT"] = "http.user_agent";
 })(AttributeNames = exports.AttributeNames || (exports.AttributeNames = {}));
 
-},{}],153:[function(require,module,exports){
+},{}],193:[function(require,module,exports){
 arguments[4][112][0].apply(exports,arguments)
-},{"./instrumentation":154,"dup":112}],154:[function(require,module,exports){
+},{"./instrumentation":194,"dup":112}],194:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -6588,7 +7105,7 @@ class UserInteractionInstrumentation extends instrumentation_1.InstrumentationBa
 }
 exports.UserInteractionInstrumentation = UserInteractionInstrumentation;
 
-},{"./enums/AttributeNames":152,"./version":155,"@opentelemetry/api":33,"@opentelemetry/core":165,"@opentelemetry/instrumentation":235,"@opentelemetry/sdk-trace-web":344}],155:[function(require,module,exports){
+},{"./enums/AttributeNames":192,"./version":195,"@opentelemetry/api":33,"@opentelemetry/core":205,"@opentelemetry/instrumentation":275,"@opentelemetry/sdk-trace-web":384}],195:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -6610,79 +7127,79 @@ exports.VERSION = void 0;
 // this is autogenerated file, see scripts/version-update.js
 exports.VERSION = '0.28.1';
 
-},{}],156:[function(require,module,exports){
+},{}],196:[function(require,module,exports){
 arguments[4][74][0].apply(exports,arguments)
-},{"dup":74}],157:[function(require,module,exports){
+},{"dup":74}],197:[function(require,module,exports){
 arguments[4][75][0].apply(exports,arguments)
-},{"dup":75}],158:[function(require,module,exports){
+},{"dup":75}],198:[function(require,module,exports){
 arguments[4][76][0].apply(exports,arguments)
-},{"../../trace/suppress-tracing":184,"../constants":157,"../utils":159,"@opentelemetry/api":33,"dup":76}],159:[function(require,module,exports){
+},{"../../trace/suppress-tracing":224,"../constants":197,"../utils":199,"@opentelemetry/api":33,"dup":76}],199:[function(require,module,exports){
 arguments[4][77][0].apply(exports,arguments)
-},{"./constants":157,"@opentelemetry/api":33,"dup":77}],160:[function(require,module,exports){
+},{"./constants":197,"@opentelemetry/api":33,"dup":77}],200:[function(require,module,exports){
 arguments[4][78][0].apply(exports,arguments)
-},{"dup":78}],161:[function(require,module,exports){
+},{"dup":78}],201:[function(require,module,exports){
 arguments[4][79][0].apply(exports,arguments)
-},{"./logging-error-handler":162,"dup":79}],162:[function(require,module,exports){
+},{"./logging-error-handler":202,"dup":79}],202:[function(require,module,exports){
 arguments[4][80][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":80}],163:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":80}],203:[function(require,module,exports){
 arguments[4][81][0].apply(exports,arguments)
-},{"../platform":171,"dup":81}],164:[function(require,module,exports){
+},{"../platform":211,"dup":81}],204:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],165:[function(require,module,exports){
+},{"dup":21}],205:[function(require,module,exports){
 arguments[4][83][0].apply(exports,arguments)
-},{"./ExportResult":156,"./baggage/propagation/W3CBaggagePropagator":158,"./baggage/utils":159,"./common/attributes":160,"./common/global-error-handler":161,"./common/logging-error-handler":162,"./common/time":163,"./common/types":164,"./platform":171,"./propagation/composite":175,"./trace/IdGenerator":176,"./trace/TraceState":177,"./trace/W3CTraceContextPropagator":178,"./trace/rpc-metadata":179,"./trace/sampler/AlwaysOffSampler":180,"./trace/sampler/AlwaysOnSampler":181,"./trace/sampler/ParentBasedSampler":182,"./trace/sampler/TraceIdRatioBasedSampler":183,"./trace/suppress-tracing":184,"./utils/environment":185,"./utils/merge":187,"./utils/sampling":188,"./utils/url":189,"./utils/wrap":190,"./version":191,"dup":83}],166:[function(require,module,exports){
+},{"./ExportResult":196,"./baggage/propagation/W3CBaggagePropagator":198,"./baggage/utils":199,"./common/attributes":200,"./common/global-error-handler":201,"./common/logging-error-handler":202,"./common/time":203,"./common/types":204,"./platform":211,"./propagation/composite":215,"./trace/IdGenerator":216,"./trace/TraceState":217,"./trace/W3CTraceContextPropagator":218,"./trace/rpc-metadata":219,"./trace/sampler/AlwaysOffSampler":220,"./trace/sampler/AlwaysOnSampler":221,"./trace/sampler/ParentBasedSampler":222,"./trace/sampler/TraceIdRatioBasedSampler":223,"./trace/suppress-tracing":224,"./utils/environment":225,"./utils/merge":227,"./utils/sampling":228,"./utils/url":229,"./utils/wrap":230,"./version":231,"dup":83}],206:[function(require,module,exports){
 arguments[4][84][0].apply(exports,arguments)
-},{"dup":84}],167:[function(require,module,exports){
+},{"dup":84}],207:[function(require,module,exports){
 arguments[4][85][0].apply(exports,arguments)
-},{"dup":85}],168:[function(require,module,exports){
+},{"dup":85}],208:[function(require,module,exports){
 arguments[4][86][0].apply(exports,arguments)
-},{"../../utils/environment":185,"./globalThis":169,"dup":86}],169:[function(require,module,exports){
+},{"../../utils/environment":225,"./globalThis":209,"dup":86}],209:[function(require,module,exports){
 arguments[4][87][0].apply(exports,arguments)
-},{"dup":87}],170:[function(require,module,exports){
+},{"dup":87}],210:[function(require,module,exports){
 arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],171:[function(require,module,exports){
+},{"dup":88}],211:[function(require,module,exports){
 arguments[4][89][0].apply(exports,arguments)
-},{"./RandomIdGenerator":167,"./environment":168,"./globalThis":169,"./hex-to-base64":170,"./performance":172,"./sdk-info":173,"./timer-util":174,"dup":89}],172:[function(require,module,exports){
+},{"./RandomIdGenerator":207,"./environment":208,"./globalThis":209,"./hex-to-base64":210,"./performance":212,"./sdk-info":213,"./timer-util":214,"dup":89}],212:[function(require,module,exports){
 arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],173:[function(require,module,exports){
+},{"dup":90}],213:[function(require,module,exports){
 arguments[4][91][0].apply(exports,arguments)
-},{"../../version":191,"@opentelemetry/semantic-conventions":383,"dup":91}],174:[function(require,module,exports){
+},{"../../version":231,"@opentelemetry/semantic-conventions":423,"dup":91}],214:[function(require,module,exports){
 arguments[4][92][0].apply(exports,arguments)
-},{"dup":92}],175:[function(require,module,exports){
+},{"dup":92}],215:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":93}],176:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":93}],216:[function(require,module,exports){
 arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],177:[function(require,module,exports){
+},{"dup":94}],217:[function(require,module,exports){
 arguments[4][95][0].apply(exports,arguments)
-},{"../internal/validators":166,"dup":95}],178:[function(require,module,exports){
+},{"../internal/validators":206,"dup":95}],218:[function(require,module,exports){
 arguments[4][96][0].apply(exports,arguments)
-},{"./TraceState":177,"./suppress-tracing":184,"@opentelemetry/api":33,"dup":96}],179:[function(require,module,exports){
+},{"./TraceState":217,"./suppress-tracing":224,"@opentelemetry/api":33,"dup":96}],219:[function(require,module,exports){
 arguments[4][97][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":97}],180:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":97}],220:[function(require,module,exports){
 arguments[4][98][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":98}],181:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":98}],221:[function(require,module,exports){
 arguments[4][99][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":99}],182:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":99}],222:[function(require,module,exports){
 arguments[4][100][0].apply(exports,arguments)
-},{"../../common/global-error-handler":161,"./AlwaysOffSampler":180,"./AlwaysOnSampler":181,"@opentelemetry/api":33,"dup":100}],183:[function(require,module,exports){
+},{"../../common/global-error-handler":201,"./AlwaysOffSampler":220,"./AlwaysOnSampler":221,"@opentelemetry/api":33,"dup":100}],223:[function(require,module,exports){
 arguments[4][101][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":101}],184:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":101}],224:[function(require,module,exports){
 arguments[4][102][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":102}],185:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":102}],225:[function(require,module,exports){
 arguments[4][103][0].apply(exports,arguments)
-},{"./sampling":188,"@opentelemetry/api":33,"dup":103}],186:[function(require,module,exports){
+},{"./sampling":228,"@opentelemetry/api":33,"dup":103}],226:[function(require,module,exports){
 arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],187:[function(require,module,exports){
+},{"dup":104}],227:[function(require,module,exports){
 arguments[4][105][0].apply(exports,arguments)
-},{"./lodash.merge":186,"dup":105}],188:[function(require,module,exports){
+},{"./lodash.merge":226,"dup":105}],228:[function(require,module,exports){
 arguments[4][106][0].apply(exports,arguments)
-},{"dup":106}],189:[function(require,module,exports){
+},{"dup":106}],229:[function(require,module,exports){
 arguments[4][107][0].apply(exports,arguments)
-},{"dup":107}],190:[function(require,module,exports){
+},{"dup":107}],230:[function(require,module,exports){
 arguments[4][108][0].apply(exports,arguments)
-},{"dup":108}],191:[function(require,module,exports){
+},{"dup":108}],231:[function(require,module,exports){
 arguments[4][109][0].apply(exports,arguments)
-},{"dup":109}],192:[function(require,module,exports){
+},{"dup":109}],232:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -6709,7 +7226,7 @@ var AttributeNames;
     AttributeNames["HTTP_STATUS_TEXT"] = "http.status_text";
 })(AttributeNames = exports.AttributeNames || (exports.AttributeNames = {}));
 
-},{}],193:[function(require,module,exports){
+},{}],233:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -6738,7 +7255,7 @@ var EventNames;
     EventNames["EVENT_TIMEOUT"] = "timeout";
 })(EventNames = exports.EventNames || (exports.EventNames = {}));
 
-},{}],194:[function(require,module,exports){
+},{}],234:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -6768,29 +7285,9 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./xhr"), exports);
 
-},{"./xhr":196}],195:[function(require,module,exports){
-"use strict";
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.VERSION = void 0;
-// this is autogenerated file, see scripts/version-update.js
-exports.VERSION = '0.27.0';
-
-},{}],196:[function(require,module,exports){
+},{"./xhr":236}],235:[function(require,module,exports){
+arguments[4][155][0].apply(exports,arguments)
+},{"dup":155}],236:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7182,79 +7679,79 @@ class XMLHttpRequestInstrumentation extends instrumentation_1.InstrumentationBas
 }
 exports.XMLHttpRequestInstrumentation = XMLHttpRequestInstrumentation;
 
-},{"./enums/AttributeNames":192,"./enums/EventNames":193,"./version":195,"@opentelemetry/api":33,"@opentelemetry/core":206,"@opentelemetry/instrumentation":235,"@opentelemetry/sdk-trace-web":344,"@opentelemetry/semantic-conventions":383}],197:[function(require,module,exports){
+},{"./enums/AttributeNames":232,"./enums/EventNames":233,"./version":235,"@opentelemetry/api":33,"@opentelemetry/core":246,"@opentelemetry/instrumentation":275,"@opentelemetry/sdk-trace-web":384,"@opentelemetry/semantic-conventions":423}],237:[function(require,module,exports){
 arguments[4][74][0].apply(exports,arguments)
-},{"dup":74}],198:[function(require,module,exports){
+},{"dup":74}],238:[function(require,module,exports){
 arguments[4][75][0].apply(exports,arguments)
-},{"dup":75}],199:[function(require,module,exports){
+},{"dup":75}],239:[function(require,module,exports){
 arguments[4][76][0].apply(exports,arguments)
-},{"../../trace/suppress-tracing":225,"../constants":198,"../utils":200,"@opentelemetry/api":33,"dup":76}],200:[function(require,module,exports){
+},{"../../trace/suppress-tracing":265,"../constants":238,"../utils":240,"@opentelemetry/api":33,"dup":76}],240:[function(require,module,exports){
 arguments[4][77][0].apply(exports,arguments)
-},{"./constants":198,"@opentelemetry/api":33,"dup":77}],201:[function(require,module,exports){
+},{"./constants":238,"@opentelemetry/api":33,"dup":77}],241:[function(require,module,exports){
 arguments[4][78][0].apply(exports,arguments)
-},{"dup":78}],202:[function(require,module,exports){
+},{"dup":78}],242:[function(require,module,exports){
 arguments[4][79][0].apply(exports,arguments)
-},{"./logging-error-handler":203,"dup":79}],203:[function(require,module,exports){
+},{"./logging-error-handler":243,"dup":79}],243:[function(require,module,exports){
 arguments[4][80][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":80}],204:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":80}],244:[function(require,module,exports){
 arguments[4][81][0].apply(exports,arguments)
-},{"../platform":212,"dup":81}],205:[function(require,module,exports){
+},{"../platform":252,"dup":81}],245:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],206:[function(require,module,exports){
+},{"dup":21}],246:[function(require,module,exports){
 arguments[4][83][0].apply(exports,arguments)
-},{"./ExportResult":197,"./baggage/propagation/W3CBaggagePropagator":199,"./baggage/utils":200,"./common/attributes":201,"./common/global-error-handler":202,"./common/logging-error-handler":203,"./common/time":204,"./common/types":205,"./platform":212,"./propagation/composite":216,"./trace/IdGenerator":217,"./trace/TraceState":218,"./trace/W3CTraceContextPropagator":219,"./trace/rpc-metadata":220,"./trace/sampler/AlwaysOffSampler":221,"./trace/sampler/AlwaysOnSampler":222,"./trace/sampler/ParentBasedSampler":223,"./trace/sampler/TraceIdRatioBasedSampler":224,"./trace/suppress-tracing":225,"./utils/environment":226,"./utils/merge":228,"./utils/sampling":229,"./utils/url":230,"./utils/wrap":231,"./version":232,"dup":83}],207:[function(require,module,exports){
+},{"./ExportResult":237,"./baggage/propagation/W3CBaggagePropagator":239,"./baggage/utils":240,"./common/attributes":241,"./common/global-error-handler":242,"./common/logging-error-handler":243,"./common/time":244,"./common/types":245,"./platform":252,"./propagation/composite":256,"./trace/IdGenerator":257,"./trace/TraceState":258,"./trace/W3CTraceContextPropagator":259,"./trace/rpc-metadata":260,"./trace/sampler/AlwaysOffSampler":261,"./trace/sampler/AlwaysOnSampler":262,"./trace/sampler/ParentBasedSampler":263,"./trace/sampler/TraceIdRatioBasedSampler":264,"./trace/suppress-tracing":265,"./utils/environment":266,"./utils/merge":268,"./utils/sampling":269,"./utils/url":270,"./utils/wrap":271,"./version":272,"dup":83}],247:[function(require,module,exports){
 arguments[4][84][0].apply(exports,arguments)
-},{"dup":84}],208:[function(require,module,exports){
+},{"dup":84}],248:[function(require,module,exports){
 arguments[4][85][0].apply(exports,arguments)
-},{"dup":85}],209:[function(require,module,exports){
+},{"dup":85}],249:[function(require,module,exports){
 arguments[4][86][0].apply(exports,arguments)
-},{"../../utils/environment":226,"./globalThis":210,"dup":86}],210:[function(require,module,exports){
+},{"../../utils/environment":266,"./globalThis":250,"dup":86}],250:[function(require,module,exports){
 arguments[4][87][0].apply(exports,arguments)
-},{"dup":87}],211:[function(require,module,exports){
+},{"dup":87}],251:[function(require,module,exports){
 arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],212:[function(require,module,exports){
+},{"dup":88}],252:[function(require,module,exports){
 arguments[4][89][0].apply(exports,arguments)
-},{"./RandomIdGenerator":208,"./environment":209,"./globalThis":210,"./hex-to-base64":211,"./performance":213,"./sdk-info":214,"./timer-util":215,"dup":89}],213:[function(require,module,exports){
+},{"./RandomIdGenerator":248,"./environment":249,"./globalThis":250,"./hex-to-base64":251,"./performance":253,"./sdk-info":254,"./timer-util":255,"dup":89}],253:[function(require,module,exports){
 arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],214:[function(require,module,exports){
+},{"dup":90}],254:[function(require,module,exports){
 arguments[4][91][0].apply(exports,arguments)
-},{"../../version":232,"@opentelemetry/semantic-conventions":383,"dup":91}],215:[function(require,module,exports){
+},{"../../version":272,"@opentelemetry/semantic-conventions":423,"dup":91}],255:[function(require,module,exports){
 arguments[4][92][0].apply(exports,arguments)
-},{"dup":92}],216:[function(require,module,exports){
+},{"dup":92}],256:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":93}],217:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":93}],257:[function(require,module,exports){
 arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],218:[function(require,module,exports){
+},{"dup":94}],258:[function(require,module,exports){
 arguments[4][95][0].apply(exports,arguments)
-},{"../internal/validators":207,"dup":95}],219:[function(require,module,exports){
+},{"../internal/validators":247,"dup":95}],259:[function(require,module,exports){
 arguments[4][96][0].apply(exports,arguments)
-},{"./TraceState":218,"./suppress-tracing":225,"@opentelemetry/api":33,"dup":96}],220:[function(require,module,exports){
+},{"./TraceState":258,"./suppress-tracing":265,"@opentelemetry/api":33,"dup":96}],260:[function(require,module,exports){
 arguments[4][97][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":97}],221:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":97}],261:[function(require,module,exports){
 arguments[4][98][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":98}],222:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":98}],262:[function(require,module,exports){
 arguments[4][99][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":99}],223:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":99}],263:[function(require,module,exports){
 arguments[4][100][0].apply(exports,arguments)
-},{"../../common/global-error-handler":202,"./AlwaysOffSampler":221,"./AlwaysOnSampler":222,"@opentelemetry/api":33,"dup":100}],224:[function(require,module,exports){
+},{"../../common/global-error-handler":242,"./AlwaysOffSampler":261,"./AlwaysOnSampler":262,"@opentelemetry/api":33,"dup":100}],264:[function(require,module,exports){
 arguments[4][101][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":101}],225:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":101}],265:[function(require,module,exports){
 arguments[4][102][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":102}],226:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":102}],266:[function(require,module,exports){
 arguments[4][103][0].apply(exports,arguments)
-},{"./sampling":229,"@opentelemetry/api":33,"dup":103}],227:[function(require,module,exports){
+},{"./sampling":269,"@opentelemetry/api":33,"dup":103}],267:[function(require,module,exports){
 arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],228:[function(require,module,exports){
+},{"dup":104}],268:[function(require,module,exports){
 arguments[4][105][0].apply(exports,arguments)
-},{"./lodash.merge":227,"dup":105}],229:[function(require,module,exports){
+},{"./lodash.merge":267,"dup":105}],269:[function(require,module,exports){
 arguments[4][106][0].apply(exports,arguments)
-},{"dup":106}],230:[function(require,module,exports){
+},{"dup":106}],270:[function(require,module,exports){
 arguments[4][107][0].apply(exports,arguments)
-},{"dup":107}],231:[function(require,module,exports){
+},{"dup":107}],271:[function(require,module,exports){
 arguments[4][108][0].apply(exports,arguments)
-},{"dup":108}],232:[function(require,module,exports){
+},{"dup":108}],272:[function(require,module,exports){
 arguments[4][109][0].apply(exports,arguments)
-},{"dup":109}],233:[function(require,module,exports){
+},{"dup":109}],273:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7293,7 +7790,7 @@ function registerInstrumentations(options) {
 }
 exports.registerInstrumentations = registerInstrumentations;
 
-},{"./autoLoaderUtils":234,"@opentelemetry/api":33,"@opentelemetry/api-metrics":6}],234:[function(require,module,exports){
+},{"./autoLoaderUtils":274,"@opentelemetry/api":33,"@opentelemetry/api-metrics":6}],274:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7370,7 +7867,7 @@ function disableInstrumentations(instrumentations) {
 }
 exports.disableInstrumentations = disableInstrumentations;
 
-},{}],235:[function(require,module,exports){
+},{}],275:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7404,7 +7901,7 @@ __exportStar(require("./types"), exports);
 __exportStar(require("./types_internal"), exports);
 __exportStar(require("./utils"), exports);
 
-},{"./autoLoader":233,"./platform/index":237,"./types":239,"./types_internal":240,"./utils":241}],236:[function(require,module,exports){
+},{"./autoLoader":273,"./platform/index":277,"./types":279,"./types_internal":280,"./utils":281}],276:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7484,9 +7981,9 @@ class InstrumentationAbstract {
 }
 exports.InstrumentationAbstract = InstrumentationAbstract;
 
-},{"@opentelemetry/api":33,"@opentelemetry/api-metrics":6,"shimmer":388}],237:[function(require,module,exports){
+},{"@opentelemetry/api":33,"@opentelemetry/api-metrics":6,"shimmer":428}],277:[function(require,module,exports){
 arguments[4][112][0].apply(exports,arguments)
-},{"./instrumentation":238,"dup":112}],238:[function(require,module,exports){
+},{"./instrumentation":278,"dup":112}],278:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7519,9 +8016,9 @@ class InstrumentationBase extends instrumentation_1.InstrumentationAbstract {
 }
 exports.InstrumentationBase = InstrumentationBase;
 
-},{"../../instrumentation":236}],239:[function(require,module,exports){
+},{"../../instrumentation":276}],279:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],240:[function(require,module,exports){
+},{"dup":21}],280:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7540,7 +8037,7 @@ arguments[4][21][0].apply(exports,arguments)
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 
-},{}],241:[function(require,module,exports){
+},{}],281:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7621,7 +8118,7 @@ function isWrapped(func) {
 }
 exports.isWrapped = isWrapped;
 
-},{}],242:[function(require,module,exports){
+},{}],282:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7693,7 +8190,7 @@ class Resource {
 exports.Resource = Resource;
 Resource.EMPTY = new Resource({});
 
-},{"./platform":247,"@opentelemetry/core":258,"@opentelemetry/semantic-conventions":383}],243:[function(require,module,exports){
+},{"./platform":287,"@opentelemetry/core":298,"@opentelemetry/semantic-conventions":423}],283:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7712,7 +8209,7 @@ Resource.EMPTY = new Resource({});
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 
-},{}],244:[function(require,module,exports){
+},{}],284:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7745,7 +8242,7 @@ __exportStar(require("./platform"), exports);
 __exportStar(require("./types"), exports);
 __exportStar(require("./config"), exports);
 
-},{"./Resource":242,"./config":243,"./platform":247,"./types":248}],245:[function(require,module,exports){
+},{"./Resource":282,"./config":283,"./platform":287,"./types":288}],285:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7769,7 +8266,7 @@ function defaultServiceName() {
 }
 exports.defaultServiceName = defaultServiceName;
 
-},{}],246:[function(require,module,exports){
+},{}],286:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7799,7 +8296,7 @@ const detectResources = async () => {
 };
 exports.detectResources = detectResources;
 
-},{"../../Resource":242}],247:[function(require,module,exports){
+},{"../../Resource":282}],287:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -7830,81 +8327,81 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./default-service-name"), exports);
 __exportStar(require("./detect-resources"), exports);
 
-},{"./default-service-name":245,"./detect-resources":246}],248:[function(require,module,exports){
+},{"./default-service-name":285,"./detect-resources":286}],288:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],249:[function(require,module,exports){
+},{"dup":21}],289:[function(require,module,exports){
 arguments[4][74][0].apply(exports,arguments)
-},{"dup":74}],250:[function(require,module,exports){
+},{"dup":74}],290:[function(require,module,exports){
 arguments[4][75][0].apply(exports,arguments)
-},{"dup":75}],251:[function(require,module,exports){
+},{"dup":75}],291:[function(require,module,exports){
 arguments[4][76][0].apply(exports,arguments)
-},{"../../trace/suppress-tracing":277,"../constants":250,"../utils":252,"@opentelemetry/api":33,"dup":76}],252:[function(require,module,exports){
+},{"../../trace/suppress-tracing":317,"../constants":290,"../utils":292,"@opentelemetry/api":33,"dup":76}],292:[function(require,module,exports){
 arguments[4][77][0].apply(exports,arguments)
-},{"./constants":250,"@opentelemetry/api":33,"dup":77}],253:[function(require,module,exports){
+},{"./constants":290,"@opentelemetry/api":33,"dup":77}],293:[function(require,module,exports){
 arguments[4][78][0].apply(exports,arguments)
-},{"dup":78}],254:[function(require,module,exports){
+},{"dup":78}],294:[function(require,module,exports){
 arguments[4][79][0].apply(exports,arguments)
-},{"./logging-error-handler":255,"dup":79}],255:[function(require,module,exports){
+},{"./logging-error-handler":295,"dup":79}],295:[function(require,module,exports){
 arguments[4][80][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":80}],256:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":80}],296:[function(require,module,exports){
 arguments[4][81][0].apply(exports,arguments)
-},{"../platform":264,"dup":81}],257:[function(require,module,exports){
+},{"../platform":304,"dup":81}],297:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],258:[function(require,module,exports){
+},{"dup":21}],298:[function(require,module,exports){
 arguments[4][83][0].apply(exports,arguments)
-},{"./ExportResult":249,"./baggage/propagation/W3CBaggagePropagator":251,"./baggage/utils":252,"./common/attributes":253,"./common/global-error-handler":254,"./common/logging-error-handler":255,"./common/time":256,"./common/types":257,"./platform":264,"./propagation/composite":268,"./trace/IdGenerator":269,"./trace/TraceState":270,"./trace/W3CTraceContextPropagator":271,"./trace/rpc-metadata":272,"./trace/sampler/AlwaysOffSampler":273,"./trace/sampler/AlwaysOnSampler":274,"./trace/sampler/ParentBasedSampler":275,"./trace/sampler/TraceIdRatioBasedSampler":276,"./trace/suppress-tracing":277,"./utils/environment":278,"./utils/merge":280,"./utils/sampling":281,"./utils/url":282,"./utils/wrap":283,"./version":284,"dup":83}],259:[function(require,module,exports){
+},{"./ExportResult":289,"./baggage/propagation/W3CBaggagePropagator":291,"./baggage/utils":292,"./common/attributes":293,"./common/global-error-handler":294,"./common/logging-error-handler":295,"./common/time":296,"./common/types":297,"./platform":304,"./propagation/composite":308,"./trace/IdGenerator":309,"./trace/TraceState":310,"./trace/W3CTraceContextPropagator":311,"./trace/rpc-metadata":312,"./trace/sampler/AlwaysOffSampler":313,"./trace/sampler/AlwaysOnSampler":314,"./trace/sampler/ParentBasedSampler":315,"./trace/sampler/TraceIdRatioBasedSampler":316,"./trace/suppress-tracing":317,"./utils/environment":318,"./utils/merge":320,"./utils/sampling":321,"./utils/url":322,"./utils/wrap":323,"./version":324,"dup":83}],299:[function(require,module,exports){
 arguments[4][84][0].apply(exports,arguments)
-},{"dup":84}],260:[function(require,module,exports){
+},{"dup":84}],300:[function(require,module,exports){
 arguments[4][85][0].apply(exports,arguments)
-},{"dup":85}],261:[function(require,module,exports){
+},{"dup":85}],301:[function(require,module,exports){
 arguments[4][86][0].apply(exports,arguments)
-},{"../../utils/environment":278,"./globalThis":262,"dup":86}],262:[function(require,module,exports){
+},{"../../utils/environment":318,"./globalThis":302,"dup":86}],302:[function(require,module,exports){
 arguments[4][87][0].apply(exports,arguments)
-},{"dup":87}],263:[function(require,module,exports){
+},{"dup":87}],303:[function(require,module,exports){
 arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],264:[function(require,module,exports){
+},{"dup":88}],304:[function(require,module,exports){
 arguments[4][89][0].apply(exports,arguments)
-},{"./RandomIdGenerator":260,"./environment":261,"./globalThis":262,"./hex-to-base64":263,"./performance":265,"./sdk-info":266,"./timer-util":267,"dup":89}],265:[function(require,module,exports){
+},{"./RandomIdGenerator":300,"./environment":301,"./globalThis":302,"./hex-to-base64":303,"./performance":305,"./sdk-info":306,"./timer-util":307,"dup":89}],305:[function(require,module,exports){
 arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],266:[function(require,module,exports){
+},{"dup":90}],306:[function(require,module,exports){
 arguments[4][91][0].apply(exports,arguments)
-},{"../../version":284,"@opentelemetry/semantic-conventions":383,"dup":91}],267:[function(require,module,exports){
+},{"../../version":324,"@opentelemetry/semantic-conventions":423,"dup":91}],307:[function(require,module,exports){
 arguments[4][92][0].apply(exports,arguments)
-},{"dup":92}],268:[function(require,module,exports){
+},{"dup":92}],308:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":93}],269:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":93}],309:[function(require,module,exports){
 arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],270:[function(require,module,exports){
+},{"dup":94}],310:[function(require,module,exports){
 arguments[4][95][0].apply(exports,arguments)
-},{"../internal/validators":259,"dup":95}],271:[function(require,module,exports){
+},{"../internal/validators":299,"dup":95}],311:[function(require,module,exports){
 arguments[4][96][0].apply(exports,arguments)
-},{"./TraceState":270,"./suppress-tracing":277,"@opentelemetry/api":33,"dup":96}],272:[function(require,module,exports){
+},{"./TraceState":310,"./suppress-tracing":317,"@opentelemetry/api":33,"dup":96}],312:[function(require,module,exports){
 arguments[4][97][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":97}],273:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":97}],313:[function(require,module,exports){
 arguments[4][98][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":98}],274:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":98}],314:[function(require,module,exports){
 arguments[4][99][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":99}],275:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":99}],315:[function(require,module,exports){
 arguments[4][100][0].apply(exports,arguments)
-},{"../../common/global-error-handler":254,"./AlwaysOffSampler":273,"./AlwaysOnSampler":274,"@opentelemetry/api":33,"dup":100}],276:[function(require,module,exports){
+},{"../../common/global-error-handler":294,"./AlwaysOffSampler":313,"./AlwaysOnSampler":314,"@opentelemetry/api":33,"dup":100}],316:[function(require,module,exports){
 arguments[4][101][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":101}],277:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":101}],317:[function(require,module,exports){
 arguments[4][102][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":102}],278:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":102}],318:[function(require,module,exports){
 arguments[4][103][0].apply(exports,arguments)
-},{"./sampling":281,"@opentelemetry/api":33,"dup":103}],279:[function(require,module,exports){
+},{"./sampling":321,"@opentelemetry/api":33,"dup":103}],319:[function(require,module,exports){
 arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],280:[function(require,module,exports){
+},{"dup":104}],320:[function(require,module,exports){
 arguments[4][105][0].apply(exports,arguments)
-},{"./lodash.merge":279,"dup":105}],281:[function(require,module,exports){
+},{"./lodash.merge":319,"dup":105}],321:[function(require,module,exports){
 arguments[4][106][0].apply(exports,arguments)
-},{"dup":106}],282:[function(require,module,exports){
+},{"dup":106}],322:[function(require,module,exports){
 arguments[4][107][0].apply(exports,arguments)
-},{"dup":107}],283:[function(require,module,exports){
+},{"dup":107}],323:[function(require,module,exports){
 arguments[4][108][0].apply(exports,arguments)
-},{"dup":108}],284:[function(require,module,exports){
+},{"dup":108}],324:[function(require,module,exports){
 arguments[4][109][0].apply(exports,arguments)
-},{"dup":109}],285:[function(require,module,exports){
+},{"dup":109}],325:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8102,7 +8599,7 @@ BasicTracerProvider._registeredPropagators = new Map([
 ]);
 BasicTracerProvider._registeredExporters = new Map();
 
-},{".":300,"./MultiSpanProcessor":286,"./config":291,"./export/NoopSpanProcessor":296,"./platform":302,"@opentelemetry/api":33,"@opentelemetry/core":314,"@opentelemetry/resources":244}],286:[function(require,module,exports){
+},{".":340,"./MultiSpanProcessor":326,"./config":331,"./export/NoopSpanProcessor":336,"./platform":342,"@opentelemetry/api":33,"@opentelemetry/core":354,"@opentelemetry/resources":284}],326:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8170,7 +8667,7 @@ class MultiSpanProcessor {
 }
 exports.MultiSpanProcessor = MultiSpanProcessor;
 
-},{"@opentelemetry/core":314}],287:[function(require,module,exports){
+},{"@opentelemetry/core":354}],327:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8390,7 +8887,7 @@ class Span {
 }
 exports.Span = Span;
 
-},{"./enums":292,"@opentelemetry/api":33,"@opentelemetry/core":314,"@opentelemetry/semantic-conventions":383}],288:[function(require,module,exports){
+},{"./enums":332,"@opentelemetry/api":33,"@opentelemetry/core":354,"@opentelemetry/semantic-conventions":423}],328:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8409,7 +8906,7 @@ exports.Span = Span;
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 
-},{}],289:[function(require,module,exports){
+},{}],329:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8428,7 +8925,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 
-},{}],290:[function(require,module,exports){
+},{}],330:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8563,7 +9060,7 @@ function getParent(options, context) {
     return api.trace.getSpanContext(context);
 }
 
-},{"./Span":287,"./utility":304,"@opentelemetry/api":33,"@opentelemetry/core":314}],291:[function(require,module,exports){
+},{"./Span":327,"./utility":344,"@opentelemetry/api":33,"@opentelemetry/core":354}],331:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8655,7 +9152,7 @@ function getSamplerProbabilityFromEnv(environment) {
     return probability;
 }
 
-},{"@opentelemetry/api":33,"@opentelemetry/core":314}],292:[function(require,module,exports){
+},{"@opentelemetry/api":33,"@opentelemetry/core":354}],332:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8677,7 +9174,7 @@ exports.ExceptionEventName = void 0;
 // Event name definitions
 exports.ExceptionEventName = 'exception';
 
-},{}],293:[function(require,module,exports){
+},{}],333:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8849,7 +9346,7 @@ class BatchSpanProcessorBase {
 }
 exports.BatchSpanProcessorBase = BatchSpanProcessorBase;
 
-},{"@opentelemetry/api":33,"@opentelemetry/core":314}],294:[function(require,module,exports){
+},{"@opentelemetry/api":33,"@opentelemetry/core":354}],334:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8924,7 +9421,7 @@ class ConsoleSpanExporter {
 }
 exports.ConsoleSpanExporter = ConsoleSpanExporter;
 
-},{"@opentelemetry/core":314}],295:[function(require,module,exports){
+},{"@opentelemetry/core":354}],335:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -8981,7 +9478,7 @@ class InMemorySpanExporter {
 }
 exports.InMemorySpanExporter = InMemorySpanExporter;
 
-},{"@opentelemetry/core":314}],296:[function(require,module,exports){
+},{"@opentelemetry/core":354}],336:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9013,7 +9510,7 @@ class NoopSpanProcessor {
 }
 exports.NoopSpanProcessor = NoopSpanProcessor;
 
-},{}],297:[function(require,module,exports){
+},{}],337:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9032,7 +9529,7 @@ exports.NoopSpanProcessor = NoopSpanProcessor;
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 
-},{}],298:[function(require,module,exports){
+},{}],338:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9108,7 +9605,7 @@ class SimpleSpanProcessor {
 }
 exports.SimpleSpanProcessor = SimpleSpanProcessor;
 
-},{"@opentelemetry/api":33,"@opentelemetry/core":314}],299:[function(require,module,exports){
+},{"@opentelemetry/api":33,"@opentelemetry/core":354}],339:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9127,7 +9624,7 @@ exports.SimpleSpanProcessor = SimpleSpanProcessor;
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 
-},{}],300:[function(require,module,exports){
+},{}],340:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9169,7 +9666,7 @@ __exportStar(require("./SpanProcessor"), exports);
 __exportStar(require("./TimedEvent"), exports);
 __exportStar(require("./types"), exports);
 
-},{"./BasicTracerProvider":285,"./Span":287,"./SpanProcessor":288,"./TimedEvent":289,"./Tracer":290,"./export/ConsoleSpanExporter":294,"./export/InMemorySpanExporter":295,"./export/NoopSpanProcessor":296,"./export/ReadableSpan":297,"./export/SimpleSpanProcessor":298,"./export/SpanExporter":299,"./platform":302,"./types":303}],301:[function(require,module,exports){
+},{"./BasicTracerProvider":325,"./Span":327,"./SpanProcessor":328,"./TimedEvent":329,"./Tracer":330,"./export/ConsoleSpanExporter":334,"./export/InMemorySpanExporter":335,"./export/NoopSpanProcessor":336,"./export/ReadableSpan":337,"./export/SimpleSpanProcessor":338,"./export/SpanExporter":339,"./platform":342,"./types":343}],341:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9220,7 +9717,7 @@ class BatchSpanProcessor extends BatchSpanProcessorBase_1.BatchSpanProcessorBase
 }
 exports.BatchSpanProcessor = BatchSpanProcessor;
 
-},{"../../../export/BatchSpanProcessorBase":293}],302:[function(require,module,exports){
+},{"../../../export/BatchSpanProcessorBase":333}],342:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9250,9 +9747,9 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./export/BatchSpanProcessor"), exports);
 
-},{"./export/BatchSpanProcessor":301}],303:[function(require,module,exports){
+},{"./export/BatchSpanProcessor":341}],343:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],304:[function(require,module,exports){
+},{"dup":21}],344:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9302,79 +9799,79 @@ function mergeConfig(userConfig) {
 }
 exports.mergeConfig = mergeConfig;
 
-},{"./config":291,"@opentelemetry/core":314}],305:[function(require,module,exports){
+},{"./config":331,"@opentelemetry/core":354}],345:[function(require,module,exports){
 arguments[4][74][0].apply(exports,arguments)
-},{"dup":74}],306:[function(require,module,exports){
+},{"dup":74}],346:[function(require,module,exports){
 arguments[4][75][0].apply(exports,arguments)
-},{"dup":75}],307:[function(require,module,exports){
+},{"dup":75}],347:[function(require,module,exports){
 arguments[4][76][0].apply(exports,arguments)
-},{"../../trace/suppress-tracing":333,"../constants":306,"../utils":308,"@opentelemetry/api":33,"dup":76}],308:[function(require,module,exports){
+},{"../../trace/suppress-tracing":373,"../constants":346,"../utils":348,"@opentelemetry/api":33,"dup":76}],348:[function(require,module,exports){
 arguments[4][77][0].apply(exports,arguments)
-},{"./constants":306,"@opentelemetry/api":33,"dup":77}],309:[function(require,module,exports){
+},{"./constants":346,"@opentelemetry/api":33,"dup":77}],349:[function(require,module,exports){
 arguments[4][78][0].apply(exports,arguments)
-},{"dup":78}],310:[function(require,module,exports){
+},{"dup":78}],350:[function(require,module,exports){
 arguments[4][79][0].apply(exports,arguments)
-},{"./logging-error-handler":311,"dup":79}],311:[function(require,module,exports){
+},{"./logging-error-handler":351,"dup":79}],351:[function(require,module,exports){
 arguments[4][80][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":80}],312:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":80}],352:[function(require,module,exports){
 arguments[4][81][0].apply(exports,arguments)
-},{"../platform":320,"dup":81}],313:[function(require,module,exports){
+},{"../platform":360,"dup":81}],353:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],314:[function(require,module,exports){
+},{"dup":21}],354:[function(require,module,exports){
 arguments[4][83][0].apply(exports,arguments)
-},{"./ExportResult":305,"./baggage/propagation/W3CBaggagePropagator":307,"./baggage/utils":308,"./common/attributes":309,"./common/global-error-handler":310,"./common/logging-error-handler":311,"./common/time":312,"./common/types":313,"./platform":320,"./propagation/composite":324,"./trace/IdGenerator":325,"./trace/TraceState":326,"./trace/W3CTraceContextPropagator":327,"./trace/rpc-metadata":328,"./trace/sampler/AlwaysOffSampler":329,"./trace/sampler/AlwaysOnSampler":330,"./trace/sampler/ParentBasedSampler":331,"./trace/sampler/TraceIdRatioBasedSampler":332,"./trace/suppress-tracing":333,"./utils/environment":334,"./utils/merge":336,"./utils/sampling":337,"./utils/url":338,"./utils/wrap":339,"./version":340,"dup":83}],315:[function(require,module,exports){
+},{"./ExportResult":345,"./baggage/propagation/W3CBaggagePropagator":347,"./baggage/utils":348,"./common/attributes":349,"./common/global-error-handler":350,"./common/logging-error-handler":351,"./common/time":352,"./common/types":353,"./platform":360,"./propagation/composite":364,"./trace/IdGenerator":365,"./trace/TraceState":366,"./trace/W3CTraceContextPropagator":367,"./trace/rpc-metadata":368,"./trace/sampler/AlwaysOffSampler":369,"./trace/sampler/AlwaysOnSampler":370,"./trace/sampler/ParentBasedSampler":371,"./trace/sampler/TraceIdRatioBasedSampler":372,"./trace/suppress-tracing":373,"./utils/environment":374,"./utils/merge":376,"./utils/sampling":377,"./utils/url":378,"./utils/wrap":379,"./version":380,"dup":83}],355:[function(require,module,exports){
 arguments[4][84][0].apply(exports,arguments)
-},{"dup":84}],316:[function(require,module,exports){
+},{"dup":84}],356:[function(require,module,exports){
 arguments[4][85][0].apply(exports,arguments)
-},{"dup":85}],317:[function(require,module,exports){
+},{"dup":85}],357:[function(require,module,exports){
 arguments[4][86][0].apply(exports,arguments)
-},{"../../utils/environment":334,"./globalThis":318,"dup":86}],318:[function(require,module,exports){
+},{"../../utils/environment":374,"./globalThis":358,"dup":86}],358:[function(require,module,exports){
 arguments[4][87][0].apply(exports,arguments)
-},{"dup":87}],319:[function(require,module,exports){
+},{"dup":87}],359:[function(require,module,exports){
 arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],320:[function(require,module,exports){
+},{"dup":88}],360:[function(require,module,exports){
 arguments[4][89][0].apply(exports,arguments)
-},{"./RandomIdGenerator":316,"./environment":317,"./globalThis":318,"./hex-to-base64":319,"./performance":321,"./sdk-info":322,"./timer-util":323,"dup":89}],321:[function(require,module,exports){
+},{"./RandomIdGenerator":356,"./environment":357,"./globalThis":358,"./hex-to-base64":359,"./performance":361,"./sdk-info":362,"./timer-util":363,"dup":89}],361:[function(require,module,exports){
 arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],322:[function(require,module,exports){
+},{"dup":90}],362:[function(require,module,exports){
 arguments[4][91][0].apply(exports,arguments)
-},{"../../version":340,"@opentelemetry/semantic-conventions":383,"dup":91}],323:[function(require,module,exports){
+},{"../../version":380,"@opentelemetry/semantic-conventions":423,"dup":91}],363:[function(require,module,exports){
 arguments[4][92][0].apply(exports,arguments)
-},{"dup":92}],324:[function(require,module,exports){
+},{"dup":92}],364:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":93}],325:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":93}],365:[function(require,module,exports){
 arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],326:[function(require,module,exports){
+},{"dup":94}],366:[function(require,module,exports){
 arguments[4][95][0].apply(exports,arguments)
-},{"../internal/validators":315,"dup":95}],327:[function(require,module,exports){
+},{"../internal/validators":355,"dup":95}],367:[function(require,module,exports){
 arguments[4][96][0].apply(exports,arguments)
-},{"./TraceState":326,"./suppress-tracing":333,"@opentelemetry/api":33,"dup":96}],328:[function(require,module,exports){
+},{"./TraceState":366,"./suppress-tracing":373,"@opentelemetry/api":33,"dup":96}],368:[function(require,module,exports){
 arguments[4][97][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":97}],329:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":97}],369:[function(require,module,exports){
 arguments[4][98][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":98}],330:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":98}],370:[function(require,module,exports){
 arguments[4][99][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":99}],331:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":99}],371:[function(require,module,exports){
 arguments[4][100][0].apply(exports,arguments)
-},{"../../common/global-error-handler":310,"./AlwaysOffSampler":329,"./AlwaysOnSampler":330,"@opentelemetry/api":33,"dup":100}],332:[function(require,module,exports){
+},{"../../common/global-error-handler":350,"./AlwaysOffSampler":369,"./AlwaysOnSampler":370,"@opentelemetry/api":33,"dup":100}],372:[function(require,module,exports){
 arguments[4][101][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":101}],333:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":101}],373:[function(require,module,exports){
 arguments[4][102][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":102}],334:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":102}],374:[function(require,module,exports){
 arguments[4][103][0].apply(exports,arguments)
-},{"./sampling":337,"@opentelemetry/api":33,"dup":103}],335:[function(require,module,exports){
+},{"./sampling":377,"@opentelemetry/api":33,"dup":103}],375:[function(require,module,exports){
 arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],336:[function(require,module,exports){
+},{"dup":104}],376:[function(require,module,exports){
 arguments[4][105][0].apply(exports,arguments)
-},{"./lodash.merge":335,"dup":105}],337:[function(require,module,exports){
+},{"./lodash.merge":375,"dup":105}],377:[function(require,module,exports){
 arguments[4][106][0].apply(exports,arguments)
-},{"dup":106}],338:[function(require,module,exports){
+},{"dup":106}],378:[function(require,module,exports){
 arguments[4][107][0].apply(exports,arguments)
-},{"dup":107}],339:[function(require,module,exports){
+},{"dup":107}],379:[function(require,module,exports){
 arguments[4][108][0].apply(exports,arguments)
-},{"dup":108}],340:[function(require,module,exports){
+},{"dup":108}],380:[function(require,module,exports){
 arguments[4][109][0].apply(exports,arguments)
-},{"dup":109}],341:[function(require,module,exports){
+},{"dup":109}],381:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9489,7 +9986,7 @@ class StackContextManager {
 }
 exports.StackContextManager = StackContextManager;
 
-},{"@opentelemetry/api":33}],342:[function(require,module,exports){
+},{"@opentelemetry/api":33}],382:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9547,7 +10044,7 @@ class WebTracerProvider extends sdk_trace_base_1.BasicTracerProvider {
 }
 exports.WebTracerProvider = WebTracerProvider;
 
-},{"./StackContextManager":341,"@opentelemetry/sdk-trace-base":300}],343:[function(require,module,exports){
+},{"./StackContextManager":381,"@opentelemetry/sdk-trace-base":340}],383:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9592,7 +10089,7 @@ var PerformanceTimingNames;
     PerformanceTimingNames["UNLOAD_EVENT_START"] = "unloadEventStart";
 })(PerformanceTimingNames = exports.PerformanceTimingNames || (exports.PerformanceTimingNames = {}));
 
-},{}],344:[function(require,module,exports){
+},{}],384:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9626,7 +10123,7 @@ __exportStar(require("./enums/PerformanceTimingNames"), exports);
 __exportStar(require("./types"), exports);
 __exportStar(require("./utils"), exports);
 
-},{"./StackContextManager":341,"./WebTracerProvider":342,"./enums/PerformanceTimingNames":343,"./types":345,"./utils":346}],345:[function(require,module,exports){
+},{"./StackContextManager":381,"./WebTracerProvider":382,"./enums/PerformanceTimingNames":383,"./types":385,"./utils":386}],385:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 /*
@@ -9646,7 +10143,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 const PerformanceTimingNames_1 = require("./enums/PerformanceTimingNames");
 
-},{"./enums/PerformanceTimingNames":343}],346:[function(require,module,exports){
+},{"./enums/PerformanceTimingNames":383}],386:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -9958,79 +10455,79 @@ function shouldPropagateTraceHeaders(spanUrl, propagateTraceHeaderCorsUrls) {
 }
 exports.shouldPropagateTraceHeaders = shouldPropagateTraceHeaders;
 
-},{"./enums/PerformanceTimingNames":343,"@opentelemetry/core":356,"@opentelemetry/semantic-conventions":383}],347:[function(require,module,exports){
+},{"./enums/PerformanceTimingNames":383,"@opentelemetry/core":396,"@opentelemetry/semantic-conventions":423}],387:[function(require,module,exports){
 arguments[4][74][0].apply(exports,arguments)
-},{"dup":74}],348:[function(require,module,exports){
+},{"dup":74}],388:[function(require,module,exports){
 arguments[4][75][0].apply(exports,arguments)
-},{"dup":75}],349:[function(require,module,exports){
+},{"dup":75}],389:[function(require,module,exports){
 arguments[4][76][0].apply(exports,arguments)
-},{"../../trace/suppress-tracing":375,"../constants":348,"../utils":350,"@opentelemetry/api":33,"dup":76}],350:[function(require,module,exports){
+},{"../../trace/suppress-tracing":415,"../constants":388,"../utils":390,"@opentelemetry/api":33,"dup":76}],390:[function(require,module,exports){
 arguments[4][77][0].apply(exports,arguments)
-},{"./constants":348,"@opentelemetry/api":33,"dup":77}],351:[function(require,module,exports){
+},{"./constants":388,"@opentelemetry/api":33,"dup":77}],391:[function(require,module,exports){
 arguments[4][78][0].apply(exports,arguments)
-},{"dup":78}],352:[function(require,module,exports){
+},{"dup":78}],392:[function(require,module,exports){
 arguments[4][79][0].apply(exports,arguments)
-},{"./logging-error-handler":353,"dup":79}],353:[function(require,module,exports){
+},{"./logging-error-handler":393,"dup":79}],393:[function(require,module,exports){
 arguments[4][80][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":80}],354:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":80}],394:[function(require,module,exports){
 arguments[4][81][0].apply(exports,arguments)
-},{"../platform":362,"dup":81}],355:[function(require,module,exports){
+},{"../platform":402,"dup":81}],395:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],356:[function(require,module,exports){
+},{"dup":21}],396:[function(require,module,exports){
 arguments[4][83][0].apply(exports,arguments)
-},{"./ExportResult":347,"./baggage/propagation/W3CBaggagePropagator":349,"./baggage/utils":350,"./common/attributes":351,"./common/global-error-handler":352,"./common/logging-error-handler":353,"./common/time":354,"./common/types":355,"./platform":362,"./propagation/composite":366,"./trace/IdGenerator":367,"./trace/TraceState":368,"./trace/W3CTraceContextPropagator":369,"./trace/rpc-metadata":370,"./trace/sampler/AlwaysOffSampler":371,"./trace/sampler/AlwaysOnSampler":372,"./trace/sampler/ParentBasedSampler":373,"./trace/sampler/TraceIdRatioBasedSampler":374,"./trace/suppress-tracing":375,"./utils/environment":376,"./utils/merge":378,"./utils/sampling":379,"./utils/url":380,"./utils/wrap":381,"./version":382,"dup":83}],357:[function(require,module,exports){
+},{"./ExportResult":387,"./baggage/propagation/W3CBaggagePropagator":389,"./baggage/utils":390,"./common/attributes":391,"./common/global-error-handler":392,"./common/logging-error-handler":393,"./common/time":394,"./common/types":395,"./platform":402,"./propagation/composite":406,"./trace/IdGenerator":407,"./trace/TraceState":408,"./trace/W3CTraceContextPropagator":409,"./trace/rpc-metadata":410,"./trace/sampler/AlwaysOffSampler":411,"./trace/sampler/AlwaysOnSampler":412,"./trace/sampler/ParentBasedSampler":413,"./trace/sampler/TraceIdRatioBasedSampler":414,"./trace/suppress-tracing":415,"./utils/environment":416,"./utils/merge":418,"./utils/sampling":419,"./utils/url":420,"./utils/wrap":421,"./version":422,"dup":83}],397:[function(require,module,exports){
 arguments[4][84][0].apply(exports,arguments)
-},{"dup":84}],358:[function(require,module,exports){
+},{"dup":84}],398:[function(require,module,exports){
 arguments[4][85][0].apply(exports,arguments)
-},{"dup":85}],359:[function(require,module,exports){
+},{"dup":85}],399:[function(require,module,exports){
 arguments[4][86][0].apply(exports,arguments)
-},{"../../utils/environment":376,"./globalThis":360,"dup":86}],360:[function(require,module,exports){
+},{"../../utils/environment":416,"./globalThis":400,"dup":86}],400:[function(require,module,exports){
 arguments[4][87][0].apply(exports,arguments)
-},{"dup":87}],361:[function(require,module,exports){
+},{"dup":87}],401:[function(require,module,exports){
 arguments[4][88][0].apply(exports,arguments)
-},{"dup":88}],362:[function(require,module,exports){
+},{"dup":88}],402:[function(require,module,exports){
 arguments[4][89][0].apply(exports,arguments)
-},{"./RandomIdGenerator":358,"./environment":359,"./globalThis":360,"./hex-to-base64":361,"./performance":363,"./sdk-info":364,"./timer-util":365,"dup":89}],363:[function(require,module,exports){
+},{"./RandomIdGenerator":398,"./environment":399,"./globalThis":400,"./hex-to-base64":401,"./performance":403,"./sdk-info":404,"./timer-util":405,"dup":89}],403:[function(require,module,exports){
 arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],364:[function(require,module,exports){
+},{"dup":90}],404:[function(require,module,exports){
 arguments[4][91][0].apply(exports,arguments)
-},{"../../version":382,"@opentelemetry/semantic-conventions":383,"dup":91}],365:[function(require,module,exports){
+},{"../../version":422,"@opentelemetry/semantic-conventions":423,"dup":91}],405:[function(require,module,exports){
 arguments[4][92][0].apply(exports,arguments)
-},{"dup":92}],366:[function(require,module,exports){
+},{"dup":92}],406:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":93}],367:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":93}],407:[function(require,module,exports){
 arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],368:[function(require,module,exports){
+},{"dup":94}],408:[function(require,module,exports){
 arguments[4][95][0].apply(exports,arguments)
-},{"../internal/validators":357,"dup":95}],369:[function(require,module,exports){
+},{"../internal/validators":397,"dup":95}],409:[function(require,module,exports){
 arguments[4][96][0].apply(exports,arguments)
-},{"./TraceState":368,"./suppress-tracing":375,"@opentelemetry/api":33,"dup":96}],370:[function(require,module,exports){
+},{"./TraceState":408,"./suppress-tracing":415,"@opentelemetry/api":33,"dup":96}],410:[function(require,module,exports){
 arguments[4][97][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":97}],371:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":97}],411:[function(require,module,exports){
 arguments[4][98][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":98}],372:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":98}],412:[function(require,module,exports){
 arguments[4][99][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":99}],373:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":99}],413:[function(require,module,exports){
 arguments[4][100][0].apply(exports,arguments)
-},{"../../common/global-error-handler":352,"./AlwaysOffSampler":371,"./AlwaysOnSampler":372,"@opentelemetry/api":33,"dup":100}],374:[function(require,module,exports){
+},{"../../common/global-error-handler":392,"./AlwaysOffSampler":411,"./AlwaysOnSampler":412,"@opentelemetry/api":33,"dup":100}],414:[function(require,module,exports){
 arguments[4][101][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":101}],375:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":101}],415:[function(require,module,exports){
 arguments[4][102][0].apply(exports,arguments)
-},{"@opentelemetry/api":33,"dup":102}],376:[function(require,module,exports){
+},{"@opentelemetry/api":33,"dup":102}],416:[function(require,module,exports){
 arguments[4][103][0].apply(exports,arguments)
-},{"./sampling":379,"@opentelemetry/api":33,"dup":103}],377:[function(require,module,exports){
+},{"./sampling":419,"@opentelemetry/api":33,"dup":103}],417:[function(require,module,exports){
 arguments[4][104][0].apply(exports,arguments)
-},{"dup":104}],378:[function(require,module,exports){
+},{"dup":104}],418:[function(require,module,exports){
 arguments[4][105][0].apply(exports,arguments)
-},{"./lodash.merge":377,"dup":105}],379:[function(require,module,exports){
+},{"./lodash.merge":417,"dup":105}],419:[function(require,module,exports){
 arguments[4][106][0].apply(exports,arguments)
-},{"dup":106}],380:[function(require,module,exports){
+},{"dup":106}],420:[function(require,module,exports){
 arguments[4][107][0].apply(exports,arguments)
-},{"dup":107}],381:[function(require,module,exports){
+},{"dup":107}],421:[function(require,module,exports){
 arguments[4][108][0].apply(exports,arguments)
-},{"dup":108}],382:[function(require,module,exports){
+},{"dup":108}],422:[function(require,module,exports){
 arguments[4][109][0].apply(exports,arguments)
-},{"dup":109}],383:[function(require,module,exports){
+},{"dup":109}],423:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -10061,7 +10558,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./trace"), exports);
 __exportStar(require("./resource"), exports);
 
-},{"./resource":385,"./trace":387}],384:[function(require,module,exports){
+},{"./resource":425,"./trace":427}],424:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -10575,7 +11072,7 @@ exports.TelemetrySdkLanguageValues = {
     WEBJS: 'webjs',
 };
 
-},{}],385:[function(require,module,exports){
+},{}],425:[function(require,module,exports){
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -10605,7 +11102,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 __exportStar(require("./SemanticResourceAttributes"), exports);
 
-},{"./SemanticResourceAttributes":384}],386:[function(require,module,exports){
+},{"./SemanticResourceAttributes":424}],426:[function(require,module,exports){
 "use strict";
 /*
  * Copyright The OpenTelemetry Authors
@@ -11493,7 +11990,7 @@ exports.MessageTypeValues = {
     RECEIVED: 'RECEIVED',
 };
 
-},{}],387:[function(require,module,exports){
+},{}],427:[function(require,module,exports){
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -11523,7 +12020,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 __exportStar(require("./SemanticAttributes"), exports);
 
-},{"./SemanticAttributes":386}],388:[function(require,module,exports){
+},{"./SemanticAttributes":426}],428:[function(require,module,exports){
 'use strict'
 
 function isFunction (funktion) {
@@ -11646,7 +12143,7 @@ shimmer.massUnwrap = massUnwrap
 
 module.exports = shimmer
 
-},{}],389:[function(require,module,exports){
+},{}],429:[function(require,module,exports){
 (function (global){(function (){
 'use strict';
 /**

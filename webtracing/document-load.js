@@ -4,6 +4,7 @@ const { WebTracerProvider } = require('@opentelemetry/sdk-trace-web');
 const { DocumentLoadInstrumentation } = require('@opentelemetry/instrumentation-document-load');
 const { XMLHttpRequestInstrumentation } = require('@opentelemetry/instrumentation-xml-http-request');
 const { UserInteractionInstrumentation } = require('@opentelemetry/instrumentation-user-interaction');
+const  { FetchInstrumentation } = require('@opentelemetry/instrumentation-fetch');
 const { ZoneContextManager } = require('@opentelemetry/context-zone');
 const { registerInstrumentations } = require('@opentelemetry/instrumentation');
 const { Resource } = require('@opentelemetry/resources');
@@ -30,26 +31,39 @@ registerInstrumentations({
     instrumentations: [
         new DocumentLoadInstrumentation(),
         new UserInteractionInstrumentation(),
-        new XMLHttpRequestInstrumentation()
+        new XMLHttpRequestInstrumentation(),
+        new FetchInstrumentation()
     ],
 });
 
-const listEl = document.querySelector('ul');
-let btn = document.getElementById('btn');
+const productListEl = document.querySelector('#products');
+const regionListEl = document.querySelector('#regions');
+let btnXHR = document.getElementById('btnXHR');
+let btnFetch = document.getElementById('btnFetch');
 
 const showProducts = (products) => {
-    listEl.innerHTML = '';
+    productListEl.innerHTML = '';
     for (let i = 0; i < products.length; i++) {
         const li = document.createElement('li');
         li.className = "item";
         li.appendChild(document.createTextNode(`${products[i].name}`));
-        listEl.appendChild(li);
+        productListEl.appendChild(li);
+    }
+}
+
+const showRegions = (regions) => {
+    regionListEl.innerHTML = '';
+    for (let i = 0; i < regions.length; i++) {
+        const li = document.createElement('li');
+        li.className = "item";
+        li.appendChild(document.createTextNode(`${regions[i].name}`));
+        regionListEl.appendChild(li);
     }
 }
 
 
 
-const fetchData = () => {
+const fetchDataXHR = () => {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', 'http://localhost:5002/products', true);
     xhr.onload = () => {
@@ -68,7 +82,20 @@ const fetchData = () => {
     xhr.send();
 };
 
-btn.addEventListener('click', () => {
-    console.log('Fetching data');
+const fetchData = () => {
+ fetch('http://localhost:5002/regions').then((res)=> {
+     res.json().then(data=>{
+         showRegions(data);
+     })
+ })
+};
+
+btnXHR.addEventListener('click', () => {
+    console.log('Fetching products');
+    fetchDataXHR();
+})
+
+btnFetch.addEventListener('click', () => {
+    console.log('Fetching regions');
     fetchData();
 })
